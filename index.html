@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Proto Shared Access SDK</title>
+<style>
+:root{
+  --bg:#0b1020; --panel:#11182b; --panel2:#0f1526; --text:#e8edf7;
+  --muted:#9aa7bd; --line:#27314a; --accent:#6ea8fe; --good:#58d68d;
+  --warn:#f6c85f; --bad:#ff7b7b; --code:#09101e;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+main{max-width:1180px;margin:0 auto;padding:28px}
+h1{font-size:30px;margin:0 0 8px}
+h2{font-size:20px;margin:28px 0 12px}
+h3{font-size:16px;margin:18px 0 8px}
+p{margin:8px 0;color:#dbe3f0}
+small,.muted{color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+.card strong{color:#fff}
+.hero{background:linear-gradient(180deg,#131c33,#0f1628);border:1px solid #31405f;border-radius:14px;padding:20px}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#1a2744;color:#9fc3ff;margin-right:6px;font-size:12px}
+table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line)}
+th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{background:#141d32;color:#fff}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+pre{overflow:auto;background:var(--code);border:1px solid var(--line);border-radius:10px;padding:14px;color:#dce8ff}
+.good{color:var(--good)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+.kv{display:grid;grid-template-columns:180px 1fr;gap:8px 16px}
+.arch{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--panel2);padding:14px;border-radius:10px;border:1px solid var(--line);white-space:pre}
+@media(max-width:800px){.grid{grid-template-columns:1fr}.kv{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+  <div class="hero">
+    <div><span class="badge">C++</span><span class="badge">Protobuf</span><span class="badge">Arena-aware</span></div>
+    <h1>Proto Shared Access SDK</h1>
+    <p>统一访问 <code>singular message</code> 与 <code>repeated message</code>，对调用方隐藏字段形态差异，同时明确 ownership / Arena 生命周期。</p>
+    <p class="muted">目标不是 shared_ptr 化 protobuf，而是提供“统一读取 + 可选迁移/接管”的访问层。</p>
+  </div>
+
+  <h2>1. 目标模型</h2>
+  <div class="arch">Proto Message
+├── singular child
+│   └── Message
+└── repeated children
+    ├── Message
+    ├── Message
+    └── Message
+
+SDK 对上统一暴露：
+ProtoView&lt;T&gt;     // 只读访问
+ProtoMutableView&lt;T&gt; // 可写访问
+ProtoMover&lt;T&gt;    // ownership 迁移</div>
+
+  <div class="grid" style="margin-top:14px">
+    <div class="card">
+      <strong>统一访问</strong>
+      <p>调用方不关心底层字段是 singular 还是 repeated，只面向 span-like view。</p>
+    </div>
+    <div class="card">
+      <strong>零额外序列化</strong>
+      <p>直接访问 protobuf 内存对象，不做 Serialize / Parse。</p>
+    </div>
+    <div class="card">
+      <strong>Arena-aware</strong>
+      <p>迁移能力区分 heap 与 same-arena，避免错误跨生命周期挂接。</p>
+    </div>
+    <div class="card">
+      <strong>语义分层</strong>
+      <p>Read/View 与 Move/Ownership 分开，避免“共享访问”误解成共享所有权。</p>
+    </div>
+  </div>
+
+  <h2>2. 推荐 API</h2>
+  <pre><code>namespace proto_access {
+
+template &lt;class T&gt;
+class ProtoView {
+ public:
+  size_t size() const;
+  const T&amp; operator[](size_t i) const;
+
+  const T* data_at(size_t i) const;
+  bool empty() const;
+};
+
+template &lt;class T&gt;
+class ProtoMutableView {
+ public:
+  size_t size() const;
+  T&amp; operator[](size_t i);
+  T* mutable_at(size_t i);
+};
+
+template &lt;class T&gt;
+struct MoveOptions {
+  bool same_arena = false;
+  bool preserve_order = true;
+};
+
+template &lt;class T&gt;
+class ProtoMover {
+ public:
+  // singular -&gt; singular
+  static void MoveSingular(T* src_parent, T* dst_parent);
+
+  // repeated[index] -&gt; repeated
+  template &lt;class SrcRepeated, class DstRepeated&gt;
+  static void MoveRepeatedElement(
+      SrcRepeated* src,
+      size_t index,
+      DstRepeated* dst,
+      MoveOptions&lt;typename SrcRepeated::value_type&gt; options = {});
+
+  // repeated 全量迁移
+  template &lt;class Repeated&gt;
+  static void SwapRepeated(Repeated* src, Repeated* dst);
+};
+
+}  // namespace proto_access</code></pre>
+
+  <h2>3. Singular 与 Repeated 的统一 View</h2>
+  <pre><code>template &lt;class T&gt;
+class SingularView {
+ public:
+  explicit SingularView(const T* ptr) : ptr_(ptr) {}
+
+  size_t size() const { return ptr_ ? 1 : 0; }
+  bool empty() const { return ptr_ == nullptr; }
+
+  const T&amp; operator[](size_t i) const {
+    assert(i == 0 &amp;&amp; ptr_);
+    return *ptr_;
+  }
+
+ private:
+  const T* ptr_;
+};
+
+template &lt;class T&gt;
+class RepeatedView {
+ public:
+  explicit RepeatedView(
+      const google::protobuf::RepeatedPtrField&lt;T&gt;* field)
+      : field_(field) {}
+
+  size_t size() const { return field_-&gt;size(); }
+  bool empty() const { return field_-&gt;empty(); }
+
+  const T&amp; operator[](size_t i) const {
+    return field_-&gt;Get(static_cast&lt;int&gt;(i));
+  }
+
+ private:
+  const google::protobuf::RepeatedPtrField&lt;T&gt;* field_;
+};</code></pre>
+
+  <p>上层可以进一步用 type-erasure / variant 封成统一的 <code>ProtoView&lt;T&gt;</code>，让遍历逻辑完全一致：</p>
+
+  <pre><code>for (size_t i = 0; i &lt; view.size(); ++i) {
+  Consume(view[i]);
+}</code></pre>
+
+  <h2>4. 迁移语义</h2>
+  <table>
+    <thead><tr><th>场景</th><th>推荐原语</th><th>复杂度</th><th>备注</th></tr></thead>
+    <tbody>
+      <tr><td>singular → singular</td><td><code>release_xxx()</code> + <code>set_allocated_xxx()</code></td><td>O(1)</td><td>heap ownership transfer</td></tr>
+      <tr><td>same Arena singular → singular</td><td><code>unsafe_arena_release_xxx()</code> + <code>unsafe_arena_set_allocated_xxx()</code></td><td>O(1)</td><td>要求 same arena / 生命周期一致</td></tr>
+      <tr><td>repeated last → repeated</td><td><code>ReleaseLast()</code> + <code>AddAllocated()</code></td><td>O(1)</td><td>不保留 source 尾元素</td></tr>
+      <tr><td>repeated[i] → repeated</td><td><code>SwapElements()</code> + <code>ReleaseLast()</code></td><td>O(1) 或 O(n)</td><td>是否保序决定复杂度</td></tr>
+      <tr><td>整个 repeated A ↔ B</td><td><code>Swap()</code></td><td>近似 O(1)</td><td>B 为空时等价于整体迁移</td></tr>
+    </tbody>
+  </table>
+
+  <h2>5. 关键实现</h2>
+  <h3>5.1 Singular ownership transfer</h3>
+  <pre><code>// generated protobuf API example
+auto* child = parent-&gt;release_a();
+parent-&gt;set_allocated_b(child);</code></pre>
+
+  <h3>5.2 Same Arena singular transfer</h3>
+  <pre><code>auto* child = parent-&gt;unsafe_arena_release_a();
+parent-&gt;unsafe_arena_set_allocated_b(child);</code></pre>
+
+  <h3>5.3 Repeated 单元素迁移</h3>
+  <pre><code>template &lt;class T&gt;
+void MoveRepeatedElement(
+    google::protobuf::RepeatedPtrField&lt;T&gt;* src,
+    int index,
+    google::protobuf::RepeatedPtrField&lt;T&gt;* dst,
+    bool preserve_order) {
+
+  const int last = src-&gt;size() - 1;
+
+  if (index != last) {
+    if (!preserve_order) {
+      src-&gt;SwapElements(index, last);
+    } else {
+      for (int i = index; i &lt; last; ++i) {
+        src-&gt;SwapElements(i, i + 1);
+      }
+    }
+  }
+
+  T* ptr = src-&gt;ReleaseLast();
+  dst-&gt;AddAllocated(ptr);
+}</code></pre>
+
+  <h3>5.4 Same Arena repeated</h3>
+  <pre><code>T* ptr = src-&gt;UnsafeArenaReleaseLast();
+dst-&gt;UnsafeArenaAddAllocated(ptr);</code></pre>
+
+  <h2>6. SDK 建议接口形态</h2>
+  <pre><code>// 只读统一访问
+auto view = proto_access::MakeView(parent.a());
+auto view = proto_access::MakeView(parent.children());
+
+// 可写统一访问
+auto view = proto_access::MakeMutableView(parent.mutable_a());
+auto view = proto_access::MakeMutableView(parent.mutable_children());
+
+// ownership migration
+proto_access::MoveField(parent, "a", "b");
+
+proto_access::MoveElement(
+    parent.mutable_a_list(),
+    index,
+    parent.mutable_b_list(),
+    {.same_arena = true, .preserve_order = false});</code></pre>
+
+  <p class="warn"><strong>建议：</strong>如果 SDK 追求性能与类型安全，不要真正用字符串反射作为主路径。主接口优先模板 / generated accessor；reflection 可作为动态 fallback。</p>
+
+  <h2>7. Reflection 版统一访问</h2>
+  <pre><code>struct DynamicMessageView {
+  const google::protobuf::Message* parent;
+  const google::protobuf::FieldDescriptor* field;
+
+  int size() const {
+    const auto* r = parent-&gt;GetReflection();
+    return field-&gt;is_repeated()
+        ? r-&gt;FieldSize(*parent, field)
+        : (r-&gt;HasField(*parent, field) ? 1 : 0);
+  }
+
+  const google::protobuf::Message&amp; get(int i) const {
+    const auto* r = parent-&gt;GetReflection();
+    return field-&gt;is_repeated()
+        ? r-&gt;GetRepeatedMessage(*parent, field, i)
+        : r-&gt;GetMessage(*parent, field);
+  }
+};</code></pre>
+
+  <p>Reflection 很适合“路径 SDK / schema 动态访问”，但如果是模型推理热路径，建议把 descriptor/path 解析结果缓存起来。</p>
+
+  <h2>8. 推荐架构</h2>
+  <div class="kv">
+    <div><strong>Access Layer</strong></div><div>统一 singular / repeated 读取与遍历。</div>
+    <div><strong>Path Layer</strong></div><div>解析 <code>a.b.c</code>，缓存 FieldDescriptor 链。</div>
+    <div><strong>Ownership Layer</strong></div><div>负责 release / add / set_allocated / arena 校验。</div>
+    <div><strong>Policy Layer</strong></div><div>是否保序、是否允许 unsafe arena、目标字段非空时如何处理。</div>
+  </div>
+
+  <h2>9. 必须明确的边界</h2>
+  <div class="card">
+    <p><span class="good">✓</span> “共享访问”可以做到统一 view，不复制 message。</p>
+    <p><span class="good">✓</span> ownership migration 可以做到子树级迁移，不需要 serialize / parse。</p>
+    <p><span class="warn">!</span> Protobuf 原生不是 <code>shared_ptr</code> 语义，而是 parent ownership + Arena lifetime。</p>
+    <p><span class="warn">!</span> <code>unsafe_arena_*</code> 只有在 Arena 关系明确时才应该由 SDK 开放。</p>
+    <p><span class="warn">!</span> repeated 中间元素删除如果必须保持顺序，本质上仍有 O(n) 容器移动成本，但不会深拷贝复杂子 message。</p>
+  </div>
+
+  <h2>10. 最终建议</h2>
+  <p>如果这是线上模型/特征链路 SDK，推荐将核心能力定义为：</p>
+  <pre><code>ProtoPath
+   ↓
+ResolvedField
+   ↓
+MessageView        // singular/repeated 统一读
+MutableMessageView // singular/repeated 统一写
+OwnershipMover     // 显式 ownership transfer
+ArenaPolicy        // 生命周期与 unsafe 约束</code></pre>
+
+  <p>不要把“访问”和“迁移”做成一个接口。前者是引用语义，后者是 ownership mutation；拆开之后 API 会稳定很多，也更适合后续接入 protobuf reflection、动态 path 和模型输入 binding。</p>
+
+  <p class="muted" style="margin-top:30px">Proto Shared Access SDK · design draft</p>
+</main>
+</body>
+</html>
