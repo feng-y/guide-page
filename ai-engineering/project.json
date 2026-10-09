@@ -1,0 +1,134 @@
+{
+  "version": "0.2",
+  "updated": "2026-10-09",
+  "title": "AI Engineering 能力建设",
+  "subtitle": "把已有理解，变成可迁移的工程能力。",
+  "goal": "随着 AI 接走已经掌握的工作，持续增强自己理解、测量、诊断和改进 AI 系统的能力。既让已有经验留下来，也主动扩展学习面。",
+  "scope": "这是能力建设项目，不是新建 Agent Runtime、Eval 平台或另一套 Skill。真实工程任务用于检验学习，而不是让 AI 生成的产物替代个人掌握。",
+  "state": "框架与材料已准备；个人能力尚未校准，尚无本项目的新模型实验。",
+  "repo": "https://github.com/feng-y/guide-page/tree/main/ai-engineering",
+  "canonical": "https://github.com/feng-y/guide-page/blob/main/ai-engineering/project.json",
+  "site": "https://feng-y.github.io/guide-page/ai-engineering/",
+  "principles": [
+    {"title":"先补限制判断的基础","text":"优先处理已明确、且反复影响实际决策的缺口；不以作者声望、工具热度或目录完整性排序。"},
+    {"title":"学习面不能只由故障决定","text":"主动检查模型、数据、统计等前置知识。当前工作没有暴露的内容，也可能值得系统学习。"},
+    {"title":"掌握与系统收益分开记录","text":"AI 做出正确结果，不自动说明自己掌握；个人能解释实验，也不自动说明系统已有生产收益。"}
+  ],
+  "priority_note": "以下是当前学习投入的工作假设，不是永久排名，也不是已经验证的最优职业路线。根据实际判断、实验和目标变化修订。",
+  "domains": [
+    {
+      "id":"evaluation","number":"01","title":"评估与测量","en":"Evaluation & Measurement","group":"foundation","priority":"优先深入","state":"已明确的学习缺口",
+      "short":"把“看起来更合理”变成可比较、可解释的工程决定。",
+      "why":"已经有很多设计判断，却难以衡量增量、区分波动与退化。继续增加方法之前，需要具备筛选、修改和停止投入的能力。",
+      "decision":"是否采用一个改动；现有证据是否支持结论；下一次实验应排除哪一种解释。",
+      "topics":["测量有效性：目标量、代理指标、过程与结果","评分器：代码判分、人工判断、LLM judge 的误判与校准","实验设计：任务抽样、重复、成对比较、隔离与混杂","结果分析：效应量、不确定性、分组汇总、等效与非劣效","工作收益：质量、人工介入、返工与端到端代价"],
+      "questions":["提问更少，是自主解决还是漏掉关键取舍？","整体中位数改善，是否掩盖了重要任务的退化？","增加重复次数与增加新任务，分别关闭哪个未知？"],
+      "mastery":"能围绕一个实际决定设计比较，检查判分错误，分析结果及边界，并提出有辨别力的下一步。",
+      "evidence":"用户明确提出缺口；尚无本项目中的独立判断或实验记录。不据此假定所有统计基础都欠缺。",
+      "revisit":"若已能独立完成设计和分析，就跳过证据入门，转向更具体的统计问题或实战。",
+      "resources":["anthropic-evals","openai-evals","nist","openintro"]
+    },
+    {
+      "id":"runtime","number":"02","title":"Agent 运行与信息状态","en":"Runtime, Context & State","group":"foundation","priority":"优先深入","state":"已明确的学习缺口",
+      "short":"沿实际运行链定位失败，不再把所有问题都修成一条新指令。",
+      "why":"SoT、渐进式披露和意图连续性已有概念基础；缺少的是它们如何实际进入请求、参与行动、更新并恢复。可将已有系统诊断经验迁移到这一层。",
+      "decision":"失败来自未加载、旧状态、工具返回、宿主行为，还是信息已具备时的模型选择？",
+      "topics":["请求构造：系统指令、仓库规则、Skill、工具描述的注入者","调用循环：模型返回、工具执行、错误处理、结果回填","上下文：读取、检索、截断、压缩与可观测边界","状态：SoT、版本、更新、失效、跨 session 恢复","执行：停止、重试、取消、部分完成与最终验收"],
+      "questions":["文件在磁盘上存在，为什么不代表当前请求已经包含它？","权威状态更新后，执行者为什么仍可能沿用旧目标？","最终结果正确，是否足以证明某个加载机制生效？"],
+      "mastery":"把一条真实轨迹对应到当前源码、请求、工具事件和产物；通过干预缩小一次故障的原因范围。",
+      "evidence":"用户明确提出缺口。当前宿主、模型与日志能力尚未为本项目重新核对。",
+      "revisit":"若已有机制可以直接观察，就先验证，不重建 Runtime；若观察缺失，只补必要的薄采集。",
+      "resources":["codex-loop","context-engineering","codex-instructions","tool-design"]
+    },
+    {
+      "id":"model","number":"03","title":"模型与数据机制","en":"Models & Data","group":"foundation","priority":"首期补基础","state":"学习深度待检查",
+      "short":"判断什么时候应该改上下文、数据、工具、模型或训练。",
+      "why":"只研究 Harness 容易把所有失败都当作指令问题。模型与数据知识扩大可用的改进手段；其优先级来自前置价值，具体学习深度仍需校准。",
+      "decision":"某类失败应由哪一种干预解决；模型升级后哪些脚手架有增量，哪些需要减弱或删除？",
+      "topics":["上下文学习与参数学习：信息供给和行为改变的区别","预训练与后训练：SFT、偏好优化、RL 的作用与限制","推理时计算：预算、采样、探索与结果波动","数据与评测：任务分布、数据质量、开发与测试分离","协议与行为：工具契约、历史延续、推理配置和版本适配"],
+      "questions":["补充信息能解决的失败，为什么不应自动升级为训练任务？","固定 Harness 换模型与分别适配后比较，回答的是同一问题吗？","旧的强制引导在新模型上是否仍然必要？"],
+      "mastery":"对一个失败提出不同机制假设，选择能区分它们的干预，解释为何选择某种改进手段而非另一个。",
+      "evidence":"已确认模型适配是关注缺口；模型原理和后训练的具体深度未检验，不标为零基础。",
+      "revisit":"以实际判断暴露的前置缺口决定深度；不默认从头训练基础模型，也不只学习版本参数。",
+      "resources":["model-optimization","claude-adaptation"]
+    },
+    {
+      "id":"tools","number":"04","title":"工具与可靠执行","en":"Tools & Reliability","group":"linked","priority":"选择性深入","state":"结合既有系统经验",
+      "short":"重点补模型与工具的交界，不重新学习全部分布式系统。",
+      "why":"工具能调用，不代表模型能有效使用。描述、信息契约、错误反馈和部分失败会影响整段工作能否交出去。",
+      "decision":"应该改变工具接口、返回内容、执行语义，还是调度方式？",
+      "topics":["工具粒度、参数与返回语义","错误反馈、幂等、重试和取消","并发、子代理与共享状态","局部结果回归整体目标"],
+      "questions":["一次重试是否重复产生副作用？","子代理完成后，谁更新整体状态？"],
+      "mastery":"定位并改善一个真实的工具使用或部分失败问题，保持必要的执行语义。",
+      "evidence":"已有系统工程经验是基础；模型与工具交界的掌握程度待具体案例确认。",
+      "revisit":"若真实任务主要失败于工具和执行，应前移，不等待基础课全部完成。",
+      "resources":["tool-design","codex-loop"]
+    },
+    {
+      "id":"human","number":"05","title":"人机理解与交互","en":"Human Understanding","group":"linked","priority":"按实际瓶颈前移","state":"价值需要任务验证",
+      "short":"让人更准确地查证、推断和决策，而不只是更喜欢输出。",
+      "why":"受控表达、稳定术语、图解和 HTML 已是已知手段。需要补的是表示机制及效果衡量，不能预设网页或视频必然更好。",
+      "decision":"当前困难来自语义歧义、关系拼接、证据查找，还是需要探索条件变化？",
+      "topics":["受控技术中文与稳定术语","关系、过程和前后对照的表示","交互式探索与证据追踪","工具辅助表现与离开材料后的迁移理解"],
+      "questions":["内容相同，仅改变表示，查证和推断是否改善？","读过后觉得清楚，换一个情境还能正确判断吗？"],
+      "mastery":"选择与理解任务匹配的表示，并用查证、推断或迁移任务检验收益。",
+      "evidence":"用户已有相关概念与使用经验；本网站的可读性不作为该方向已经有效的证据。",
+      "revisit":"若人工理解与审阅是当前主要代价，可以早于跨模型适配展开。",
+      "resources":["ste","explorable"]
+    },
+    {
+      "id":"systems","number":"06","title":"训练、GPU 与推理系统","en":"Training & Inference Systems","group":"conditional","priority":"由目标决定深度","state":"已有技术纵深",
+      "short":"继续使用已有积累，但不因技术含量高就默认成为本项目主线。",
+      "why":"这条方向与已有职业经验相邻，仍然重要；是否大幅投入取决于目标是否转向训练或推理系统，而非 Agent 系统诊断本身。",
+      "decision":"下一阶段要承担的是模型系统性能，还是 AI 持续工作的可靠性？",
+      "topics":["训练与推理工作负载","性能诊断与资源效率","分布式训练与数据路径","模型系统迁移与质量约束"],
+      "questions":["这个学习投入能打开哪类尚不能承担的问题？","是否只是继续加深已经熟悉、却非当前限制的部分？"],
+      "mastery":"由实际工作目标制定，不在本轮预设一份通用课程。",
+      "evidence":"作为已有可迁移基础；不以未经验证的评分描述强弱。",
+      "revisit":"职业目标或真实项目转向时重排优先级；当前排序不是就业市场研究结论。",
+      "resources":[]
+    }
+  ],
+  "current": {
+    "id":"U01","title":"设计一次能支持决定的比较","status":"建议入口 · 尚未运行",
+    "question":"同一条关键规范，从直接注入改为按需读取后，指定任务的约束保持是否变化？",
+    "why":"这个小问题把测量、信息加载与模型行为连起来；不要求改造整套 Skill，也不预设渐进式披露有效。可以换成当前更重要的真实问题。",
+    "baseline":"A：直接提供规范全文。B：保留同一份规范正文，只改变读取方式。先固定模型、宿主、工具、任务和其他运行配置。",
+    "observe":"优先检查最终产物的具体约束；同时保留可取得的请求、读取、工具与状态证据。没有 read_file 事件不自动等于未加载；加载成功也不等于采用正确。",
+    "analysis":"区分任务数与重复数，保留失败与超时。先校准测量，再按要支持的决定和观察到的波动确定样本，不预定一个万能运行次数。",
+    "intervention":"按需读取失败时，可在内容不变的条件下直接注入，检查信息取得路径是否是候选原因。单次成功只提供线索，不证明普遍因果关系。",
+    "personal":"在看到完整解释前，留下自己的预测或实验取舍；结果出来后，说明哪些判断被修正。AI 可以写脚本，不能代替这项掌握证据。",
+    "next":"先写清要支持的实际决定、关键约束与可能的替代解释；随后核对现有环境能观察哪些事件。",
+    "outcomes":["一份能支持具体决定的比较设计","一条对应当前实现的运行记录","一项带适用边界的采用、修改或 no-op 判断"],
+    "lesson":"L01 只作可跳过的参考：已经能区分测试、行为与收益时，直接进入实验设计，不重复入门。"
+  },
+  "evidence":[
+    {"id":"E01","title":"本项目新的真实运行","kind":"新实验","status":"尚未开展","supports":"目前没有新模型运行可用于判断机制或效果。","limit":"材料准备、站点上线和脚本检查不计入实验结果。"},
+    {"id":"H01","title":"已有 Eval 报告的证据拆解","kind":"历史参考","status":"教材已准备","supports":"用于讨论测量器测试、真实 Agent 行为与实际收益的区别。","limit":"历史报告不是当前环境状态；本轮未重验其运行声明。"},
+    {"id":"P01","title":"个人判断与迁移能力","kind":"个人掌握","status":"尚未校准","supports":"只有实际预测、实验选择、结果解释或新情境诊断才形成掌握证据。","limit":"不由 AI 代答后标记完成；不生成虚假的能力分数。"}
+  ],
+  "resources":[
+    {"id":"anthropic-evals","title":"Demystifying evals for AI agents","publisher":"Anthropic","url":"https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents","domain":"evaluation","purpose":"评测结构、判分方式、轨迹与结果、非确定性。","use":"把一个实际比较写成任务、运行、判分和结果，检查各自的证据。"},
+    {"id":"openai-evals","title":"Evaluation best practices","publisher":"OpenAI","url":"https://developers.openai.com/api/docs/guides/evaluation-best-practices","domain":"evaluation","purpose":"模型评分器的校准与常见偏差。","use":"用已知正确、错误和有效替代方案检查评分器，而不是只让它自评。"},
+    {"id":"nist","title":"Choosing an experimental design","publisher":"NIST / SEMATECH","url":"https://www.itl.nist.gov/div898/handbook/pri/section3/pri3.htm","domain":"evaluation","purpose":"实验目标、因素、响应与设计选择。","use":"为当前问题写清比较对象、变量、样本单位和分析方法。"},
+    {"id":"openintro","title":"OpenIntro Statistics","publisher":"OpenIntro","url":"https://www.openintro.org/book/os/","domain":"evaluation","purpose":"抽样、区间估计与比较的统计基础。","use":"根据实验暴露的基础缺口选读，不要求从第一页开始。"},
+    {"id":"codex-loop","title":"Unrolling the Codex agent loop","publisher":"OpenAI","url":"https://openai.com/index/unrolling-the-codex-agent-loop/","domain":"runtime","purpose":"请求装配、模型调用、工具回填与上下文管理的实现入口。","use":"对照实际版本，标注一条源码—事件—产物链；文章不是当前实现的替代品。"},
+    {"id":"codex-instructions","title":"AGENTS.md 指令发现","publisher":"OpenAI","url":"https://developers.openai.com/codex/guides/agents-md","domain":"runtime","purpose":"指令发现、目录层级与加载规则。","use":"用当前宿主验证一条规范到底何时进入请求。"},
+    {"id":"context-engineering","title":"Effective context engineering for AI agents","publisher":"Anthropic","url":"https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents","domain":"runtime","purpose":"上下文选择、检索、压缩和外部记忆。","use":"把“找不到、过期、丢失、未采用”分开定位。"},
+    {"id":"model-optimization","title":"Model optimization","publisher":"OpenAI","url":"https://developers.openai.com/api/docs/guides/model-optimization","domain":"model","purpose":"评测、提示与不同训练方法的配合。","use":"比较不同干预为何适合或不适合当前失败。"},
+    {"id":"claude-adaptation","title":"Prompting best practices","publisher":"Anthropic","url":"https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices","domain":"model","purpose":"模型特定行为、历史处理与迁移建议。","use":"仅用于所用版本；判断旧引导是否需要减弱、删除或调整。"},
+    {"id":"tool-design","title":"Writing effective tools for agents","publisher":"Anthropic","url":"https://www.anthropic.com/engineering/writing-tools-for-agents","domain":"tools","purpose":"工具信息契约、描述、返回与实际任务验证。","use":"诊断一个工具使用失败，不默认增加更强指令。"},
+    {"id":"ste","title":"About ASD-STE100","publisher":"ASD Simplified Technical English","url":"https://www.asd-ste100.org/about_STE.html","domain":"human","purpose":"了解受控语言的目标和结构，不把英文规则机械照搬到中文。","use":"选择可检查的中文表达约束，保留条件、术语和证据边界。"},
+    {"id":"explorable","title":"Explorable Explanations","publisher":"Bret Victor","url":"https://worrydream.com/ExplorableExplanations/","domain":"human","purpose":"让读者操作假设、查看关系与主动探索。","use":"先指定查证或推断任务，再判断交互是否提供实际帮助。"}
+  ],
+  "changes":[
+    {"date":"2026-10-09","version":"0.2","title":"修正优先级，建立持续维护入口","detail":"取消固定四里程碑；模型与数据前移到基础主线，信息状态并入运行机制。模型适配与工作迁移改为应用验收。L01 可跳过。网站与导出的项目文档共用一份结构化内容。"},
+    {"date":"2026-10-08","version":"0.1","title":"建立初版目标与 L01 材料","detail":"形成项目初稿和历史案例教材。只完成材料准备，不代表个人已掌握，也没有新的真实模型实验。"}
+  ],
+  "maintenance": {
+    "truth":"project.json 是本学习项目目标、优先级、状态、证据目录和下一步的唯一维护源。网页与导出的 Taskbook 都由它生成。",
+    "update":"更新同一个文件后提交到 main，复用现有 GitHub Pages 自动发布。详细教材可单独维护，但不建立平行进度。",
+    "draft":"页面中的练习记录只保存到当前浏览器；导出或提交给项目维护者后，经过核对才能写入正式进度。",
+    "resume":"继续 AI Engineering 能力建设项目。先读取 feng-y/guide-page 的 ai-engineering/project.json，以当前版本恢复目标、优先级、证据和下一步。保留三条基础主线；不要重新套用固定四阶段。用实际判断和运行证据更新同一份内容，区分材料准备、系统效果与个人掌握。"
+  }
+}
