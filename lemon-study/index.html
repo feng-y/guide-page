@@ -28,17 +28,17 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 320px;align-items:start;ga
 </head>
 <body>
 <div class="wrap">
-<header class="top"><div class="brand">LEMON / LEARNING</div><div class="navline">家长 × 家教 × Lemon · 单次学习约定 · 2026.10</div></header>
+<header class="top"><div class="brand">LEMON / LEARNING</div><div class="navline"><a href="./pool.html">← 先从每周任务池选今天的任务</a> · 单次共学约定</div></header>
 <div class="hero">
   <div class="kicker">一次学习 · 共同约定</div>
   <h1>今天这 60～90 分钟，<br>我们怎么一起完成？</h1>
-  <p class="lead">这是一段<b>一起学习</b>的时间，不是让 Lemon 像考试一样闷头写。成人带着他讨论、示范和反馈，Lemon 参与思考、短时独立尝试，并逐渐承担自己的责任。60～90分钟包含互动、练习、休息和收尾。</p>
+  <p class="lead">今天做什么，先从<a href="./pool.html">每周任务池</a>选择。这里负责把选好的任务变成一段<b>一起学习</b>的时间：成人带着 Lemon 讨论、示范和反馈，Lemon 短时独立尝试，并逐渐承担自己的责任。60～90分钟包含互动、练习、休息和收尾。</p>
   <div class="hero-meta"><span class="chip">成人与孩子共同学习</span><span class="chip">互动 → 尝试 → 反馈</span><span class="chip">到点清点，不临时加码</span></div>
 </div>
 <main>
 <div class="stack">
 <section class="card" id="prepare">
- <div class="cardhead"><div class="num">1</div><div><h2>成人先准备：今天要学什么、做什么</h2><p class="hint">不是把全部时间分配给闷头写作业。最多先选三项，兼顾必须完成的作业和需要讲解的难点；成人先判断哪里要一起学，哪里适合 Lemon 自己试。</p></div></div>
+ <div class="cardhead"><div class="num">1</div><div><h2>成人先准备：今天要学什么、做什么</h2><p class="hint">可以从<a href="./pool.html">每周任务池</a>带入，也可临时修改。最多三项主任务；成人判断哪里要一起学，哪里适合 Lemon 自己试，而不是把整堂课安排成安静写作业。</p></div></div>
  <div class="form-grid">
   <div class="field"><label for="sessionDate">学习日期</label><input id="sessionDate" type="date"></div>
   <div class="field"><label for="duration">约定总时长（包含休息）</label><select id="duration"><option value="60">60 分钟</option><option value="75">75 分钟</option><option value="90" selected>90 分钟</option></select></div>
@@ -93,8 +93,8 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 320px;align-items:start;ga
   <div class="field"><label for="next">剩余任务怎么处理？</label><input id="next" placeholder="例如：作文剩200字，明天另行安排"></div>
   <div class="field"><label for="guide">今天什么互动 / 引导最有效？</label><input id="guide" placeholder="例如：一起做例题后，能自己说明方法"></div>
  </div>
- <div class="actions"><button id="copy" type="button">复制今日约定与反馈</button><button id="print" type="button" class="secondary">打印 / 保存 PDF</button><button id="reset" type="button" class="ghost">清空本次记录</button></div>
- <div class="notice">编辑内容自动保存在当前浏览器，家长与家教换设备不会自动同步。可以复制文本发给家教，或打印留存。<span id="status" role="status" aria-live="polite"></span></div>
+ <div class="actions"><button id="syncPool" class="secondary" type="button">将完成情况回写每周任务池</button><button id="copy" type="button">复制今日约定与反馈</button><button id="print" type="button" class="secondary">打印 / 保存 PDF</button><button id="reset" type="button" class="ghost">清空本次记录</button></div>
+ <div class="notice">共学任务可从<a href="./pool.html">任务池</a>带入，结束后手动回写结果。编辑内容仅保存在当前浏览器，家长与家教换设备不会自动同步；可以复制文本发给家教。<span id="status" role="status" aria-live="polite"></span></div>
 </section>
 </div>
 <aside class="side">
@@ -108,7 +108,7 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 320px;align-items:start;ga
 <script>
 (function(){
 'use strict';
-var storageKey='lemon-single-session-v1';
+var storageKey='lemon-single-session-v1', poolKey='lemon-weekly-pool-v1', handoffKey='lemon-session-import-v1', activeKey='lemon-session-active-v1';
 var fields=['sessionDate','duration','task0','task1','task2','goal0','goal1','goal2','first','promise','reward','rewardOther','join','adult','done0','done1','done2','promiseDone','win','next','guide'];
 var defaults={};
 var $=function(id){return document.getElementById(id)};
@@ -203,6 +203,44 @@ function restore(){
  if(savedFirst && taskNames().indexOf(savedFirst)>=0){$('first').value=savedFirst;buildAgenda()}
  refreshSummary();
 }
+function importFromPool(){
+ if(!/(?:\?|&)fromPool=1(?:&|$)/.test(window.location.search))return;
+ var payload;try{payload=JSON.parse(localStorage.getItem(handoffKey)||'null')}catch(e){payload=null}
+ if(!payload||!Array.isArray(payload.tasks)||!payload.tasks.length){showStatus(' · 无可导入的任务，请先到任务池选择');return}
+ if(!['60','75','90'].includes(String(payload.duration))){showStatus(' · 导入的时长无效');return}
+ $('sessionDate').value=payload.date;
+ $('duration').value=String(payload.duration);
+ for(var i=0;i<3;i++){
+  var task=payload.tasks[i];
+  $('task'+i).value=task?String(task.title||''):'';
+  $('goal'+i).value=task?String(task.goal||''):'';
+  $('done'+i).checked=false;
+ }
+ $('promiseDone').checked=false;$('win').value='';$('next').value='';$('guide').value='';
+ $('join').checked=false;$('adult').checked=false;
+ blockChoice={block1:'',block2:'',block3:''};
+ render();save();
+ try{localStorage.setItem(activeKey,JSON.stringify(payload))}catch(e){}
+ showStatus(' · 已从每周任务池载入，可与 Lemon 再确认顺序、责任和奖励');
+ try{window.history.replaceState(null,'',window.location.pathname)}catch(e){}
+}
+function syncPool(){
+ var active;try{active=JSON.parse(localStorage.getItem(activeKey)||'null')}catch(e){active=null}
+ if(!active||!active.tasks||!active.tasks.length){showStatus(' · 本次不是从任务池载入，请先回到任务池手动标记');return}
+ if($('sessionDate').value!==active.date){showStatus(' · 日期已改变，请在任务池中手动核对后更新');return}
+ var pool;try{pool=JSON.parse(localStorage.getItem(poolKey)||'null')}catch(e){pool=null}
+ if(!pool||!pool.done){showStatus(' · 找不到本地任务池，请先到任务池确认');return}
+ var count=0,skipped=0;
+ active.tasks.forEach(function(task,i){
+  if(i>=3||!task||!task.id)return;
+  if($('task'+i).value!==task.title){skipped++;return}
+  var key=active.week+'|'+task.id;
+  pool.done[key]=$('done'+i).checked;
+  if($('done'+i).checked)count++;
+ });
+ try{localStorage.setItem(poolKey,JSON.stringify(pool));showStatus(' · 已回写 '+count+' 项完成状态'+(skipped?'；'+skipped+' 项名称更改需手动核对':''))}
+ catch(e){showStatus(' · 回写失败，请先复制记录')}
+}
 function line(id){return $(id).value.trim()||'未填写'}
 function check(id){return $(id).checked?'是':'否'}
 function agreement(){
@@ -232,9 +270,10 @@ function fallback(text){
  ta.remove();
 }
 $('print').addEventListener('click',function(){window.print()});
+$('syncPool').addEventListener('click',syncPool);
 $('reset').addEventListener('click',function(){
  if(!window.confirm('清空本次记录，恢复到默认示例？'))return;
- try{localStorage.removeItem(storageKey)}catch(e){}
+ try{localStorage.removeItem(storageKey);localStorage.removeItem(activeKey)}catch(e){}
  fields.forEach(function(id){if(!Object.prototype.hasOwnProperty.call(defaults,id))return;var e=$(id);if(e.type==='checkbox')e.checked=defaults[id];else e.value=defaults[id]});
  $('sessionDate').value=today();
  blockChoice={block1:'',block2:'',block3:''};
@@ -242,6 +281,7 @@ $('reset').addEventListener('click',function(){
 });
 fields.forEach(function(id){var e=$(id);defaults[id]=e.type==='checkbox'?e.checked:e.value});
 restore();
+importFromPool();
 fields.forEach(function(id){
  var e=$(id);
  e.addEventListener(e.type==='checkbox'||e.tagName==='SELECT'||e.type==='date'?'change':'input',function(){
