@@ -16,7 +16,7 @@
 .sectionlabel{display:flex;align-items:center;gap:8px;margin:20px 0 10px}.sectionlabel b{font-size:14px}.sectionlabel span{font-size:11px;color:var(--muted)}
 .task{border:1px solid #e6ebf2;border-radius:11px;padding:13px;margin-bottom:9px;background:#fff}.task.onduty{border-color:#bbd1f2;background:#f9fbff}.task.done{opacity:.64}.tasktop{display:flex;justify-content:space-between;gap:10px;align-items:start}.taskname{font-weight:750;font-size:14px}.tasklabel{font-size:11px;border-radius:6px;background:#f0f3f8;color:#5b6880;padding:2px 7px;white-space:nowrap}.taskmeta{color:#71829a;font-size:12px;margin:3px 0 10px}.taskactions{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.mini{padding:6px 9px;font-size:11px}.added{color:var(--green);font-size:12px;font-weight:700}
 button{font:700 13px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;cursor:pointer;border:0;border-radius:9px;padding:9px 12px;color:white;background:var(--primary)}button:hover{filter:brightness(.95)}button.secondary{background:#eaf0fa;color:#315a94}button.outline{border:1px solid #d5dfe9;background:#fff;color:#536780}button:disabled{opacity:.48;cursor:not-allowed}
-.form{display:grid;grid-template-columns:1fr 102px;gap:10px;margin-top:12px}.field{display:grid;gap:4px}.field label{font-size:12px;color:#5b6f89;font-weight:700}input,select{font:inherit;border:1px solid #d6e0ed;padding:9px;border-radius:9px;min-width:0;background:#fff;width:100%;color:var(--ink)}input:focus,select:focus{outline:2px solid #bbd0f1}.full{grid-column:1/-1}.form-actions{display:flex;gap:9px;align-items:center}.form-actions button{width:auto}
+.quick{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px}.form{display:grid;grid-template-columns:1fr 102px;gap:10px;margin-top:12px}.field{display:grid;gap:4px}.field label{font-size:12px;color:#5b6f89;font-weight:700}input,select{font:inherit;border:1px solid #d6e0ed;padding:9px;border-radius:9px;min-width:0;background:#fff;width:100%;color:var(--ink)}input:focus,select:focus{outline:2px solid #bbd0f1}.full{grid-column:1/-1}.form-actions{display:flex;gap:9px;align-items:center}.form-actions button{width:auto}
 .sticky{position:sticky;top:16px}.sidebox{border-radius:12px;background:#f5f8fd;padding:12px;margin:12px 0}.meter{height:9px;background:#e1e8f2;border-radius:99px;overflow:hidden;margin:8px 0}.meter>div{height:100%;background:#5f88cb;border-radius:99px;transition:width .2s}.meter.over>div{background:#ca7c45}.stats{display:flex;justify-content:space-between;font-size:12px;color:#63758d}.selection{padding:8px 0;border-bottom:1px solid #e6ebf2;display:flex;justify-content:space-between;gap:10px}.selection:last-child{border:0}.selection b{font-size:12px}.selection small{display:block;font-size:11px;color:#7a879b}.selection button{flex-shrink:0;align-self:center}
 .check{display:flex;align-items:center;gap:8px;font-size:13px;margin-top:9px}.check input{width:16px;accent-color:var(--primary)}.callout{background:#f6f1e8;color:#705735;font-size:12px;line-height:1.8;border-radius:10px;padding:12px;margin-top:13px}
 .empty{padding:20px;color:#8895a8;font-size:13px;background:#fbfcfd;border:1px dashed #dee5ef;border-radius:10px}
@@ -35,7 +35,8 @@ button{font:700 13px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",s
 <div class="weeknav"><button type="button" class="outline" id="prev">← 上周</button><strong id="weekTitle"></strong><button type="button" class="outline" id="next">下周 →</button></div><div id="weekdays" class="weekdays"></div>
 <div id="dayInfo" class="callout"></div></section>
 <section class="card"><h2>02 · 从任务池挑选今天做什么</h2><p class="intro muted">先处理必要任务与时间敏感的作业；如果时间不够，就不再额外塞入书写训练。</p><div id="pool"></div></section>
-<section class="card"><h2>03 · 补充当天真实作业</h2><p class="intro muted">课内语数英、数学《学霸》和其他作业每天不一样，只填写当天实际存在的任务。下方选择的日期用于该任务的安排日。</p>
+<section class="card"><h2>03 · 补充当天真实作业</h2><p class="intro muted">课内语数英、数学《学霸》和其他作业每天不一样。可以先点常用任务模板，再补充真实页数、内容和完成标准；下方选择的日期用于该任务的安排日。</p>
+<div id="quick" class="quick"><button type="button" class="outline mini" data-quick="school-zh">+ 课内语文</button><button type="button" class="outline mini" data-quick="school-math">+ 课内数学</button><button type="button" class="outline mini" data-quick="school-en">+ 课内英语</button><button type="button" class="outline mini" data-quick="xueba">+ 数学《学霸》</button><button type="button" class="outline mini" data-quick="extra">+ 其他课外</button></div>
 <div class="form"><div class="field full"><label for="newName">具体任务</label><input id="newName" placeholder="例如：数学课内练习第3页 / 语文背诵"></div>
 <div class="field"><label for="newType">任务类别</label><select id="newType"><option value="school">课内必做</option><option value="extra">课外巩固</option><option value="course">课程作业</option></select></div>
 <div class="field"><label for="newMinutes">预估分钟</label><input id="newMinutes" type="number" min="3" max="120" value="15"></div>
@@ -151,6 +152,18 @@ $('next').addEventListener('click',function(){week=dateOf(week,7);render()});
 $('duration').addEventListener('change',function(){state.duration=Number(this.value);renderSelection();save()});
 $('lang').addEventListener('change',function(){state.lang=this.value;state.level='';renderLevels();save()});
 $('level').addEventListener('change',function(){state.level=this.value;save()});
+var presets={
+ 'school-zh':{name:'语文课内作业',type:'school',goal:'写清当天具体页数、题目和完成标准'},
+ 'school-math':{name:'数学课内作业',type:'school',goal:'确认当天题目范围，先共同理思路再练习'},
+ 'school-en':{name:'英语课内作业',type:'school',goal:'填写当天听说读写的具体要求'},
+ 'xueba':{name:'数学《学霸》',type:'extra',goal:'填写具体页数；已掌握的内容不必重复加量'},
+ 'extra':{name:'其他课外作业',type:'extra',goal:'填写课程和明确完成范围'}
+};
+$('quick').querySelectorAll('[data-quick]').forEach(function(b){
+ b.addEventListener('click',function(){
+  var p=presets[b.dataset.quick];$('newName').value=p.name;$('newType').value=p.type;$('newGoal').value=p.goal;$('newName').focus();notice('已选模板，请补充具体内容后加入任务池');
+ })
+});
 $('add').addEventListener('click',function(){
  var name=$('newName').value.trim(),minutes=Math.min(120,Math.max(3,Number($('newMinutes').value)||15)),goal=$('newGoal').value.trim();
  if(!name){notice('请先填写具体作业名称');$('newName').focus();return}
