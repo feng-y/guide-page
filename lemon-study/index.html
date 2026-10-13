@@ -65,6 +65,7 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 320px;align-items:start;ga
 <section class="card" id="do">
  <div class="cardhead"><div class="num">3</div><div><h2>执行：三段共同学习，而不是三段监考</h2><p class="hint">下方按总时长安排三段共学、两次休息。每段由成人引导、一起练、Lemon 短时独立尝试、共同反馈组成；不是要求他连续安静做完20分钟。</p></div></div>
  <div id="agenda"></div>
+ <div id="routinePlan" style="display:none" class="inline-note"></div>
  <div class="divider"></div>
  <h3>每段共学如何进行（按任务灵活调整，不是固定配额）</h3>
  <div class="rhythm">
@@ -84,6 +85,7 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 320px;align-items:start;ga
 </section>
 <section class="card" id="finish">
  <div class="cardhead"><div class="num">4</div><div><h2>结束：回顾一起学会了什么</h2><p class="hint">不只核对作业量，也看 Lemon 能不能讲出一点方法、完成一次独立尝试，以及成人什么引导真正有用。</p></div></div>
+ <div id="routineResults" style="display:none" class="callout"><strong>每日例行完成情况</strong><div id="routineChecks"></div></div>
  <label class="checkrow"><input id="done0" type="checkbox"><span>已完成任务 1 的约定部分</span></label>
  <label class="checkrow"><input id="done1" type="checkbox"><span>已完成任务 2 的约定部分</span></label>
  <label class="checkrow"><input id="done2" type="checkbox"><span>已完成任务 3 的约定部分（若安排）</span></label>
@@ -110,11 +112,34 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 320px;align-items:start;ga
 'use strict';
 var storageKey='lemon-single-session-v1', poolKey='lemon-weekly-pool-v1', handoffKey='lemon-session-import-v1', activeKey='lemon-session-active-v1';
 var fields=['sessionDate','duration','task0','task1','task2','goal0','goal1','goal2','first','promise','reward','rewardOther','join','adult','done0','done1','done2','promiseDone','win','next','guide'];
-var defaults={};
+var defaults={},savedRoutineDone={};
 var $=function(id){return document.getElementById(id)};
 function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 $('sessionDate').value=today();
-function taskNames(){return [0,1,2].map(function(n){return $('task'+n).value.trim()}).filter(Boolean)}
+function activeSession(){try{return JSON.parse(localStorage.getItem(activeKey)||'null')}catch(e){return null}}
+function taskNames(){
+ var names=[0,1,2].map(function(n){return $('task'+n).value.trim()}).filter(Boolean);
+ var active=activeSession();
+ if(active&&$('sessionDate').value===active.date&&Array.isArray(active.routines)){active.routines.forEach(function(t){if(t.title&&names.indexOf(t.title)<0)names.push(String(t.title))})}
+ return names
+}
+function renderRoutines(){
+ var active=activeSession(),rs=active&&active.date===$('sessionDate').value&&Array.isArray(active.routines)?active.routines:[];
+ var plan=$('routinePlan'),results=$('routineResults'),checks=$('routineChecks');
+ checks.replaceChildren();
+ plan.style.display=rs.length?'block':'none';results.style.display=rs.length?'block':'none';
+ if(rs.length){
+  plan.textContent='今天另含新东方每日例行：'+rs.map(function(t){return t.title+'（约'+t.minutes+'分钟）'}).join('、')+'。可以融入任一共学阶段，不额外延长总时长。';
+  rs.forEach(function(t){
+   var label=document.createElement('label');label.className='checkrow';
+   var input=document.createElement('input');input.type='checkbox';input.dataset.routineDone=t.id;input.checked=!!savedRoutineDone[t.id];
+   input.addEventListener('change',save);
+   var name=document.createElement('span');name.textContent=t.title+' · 已完成今天约定的部分';
+   label.appendChild(input);label.appendChild(name);checks.appendChild(label);
+  });
+ }
+ [0,1,2].forEach(function(i){$('done'+i).parentElement.style.display=$('task'+i).value.trim()?'flex':'none'});
+}
 function setText(id,value){$(id).textContent=value}
 function updateFirst(){
  var s=$('first'),was=s.value,names=taskNames(),chosen=names.indexOf(was)>=0?was:(names[0]||'待确定');
@@ -190,15 +215,17 @@ function save(){
  var data={};
  fields.forEach(function(id){var e=$(id);data[id]=e.type==='checkbox'?e.checked:e.value});
  ['block1','block2','block3'].forEach(function(id){var e=$(id);data[id]=e?e.value:(blockChoice[id]||'')});
+ data.routineDone={};$('routineChecks').querySelectorAll('[data-routine-done]').forEach(function(e){data.routineDone[e.dataset.routineDone]=e.checked});savedRoutineDone=data.routineDone;
  try{localStorage.setItem(storageKey,JSON.stringify(data))}catch(e){}
  refreshSummary();
 }
 function restore(){
  var raw;try{raw=JSON.parse(localStorage.getItem(storageKey)||'null')}catch(e){raw=null}
- if(!raw){render();return}
+ if(!raw){render();renderRoutines();return}
  fields.forEach(function(id){if(Object.prototype.hasOwnProperty.call(raw,id)){var e=$(id);if(e.type==='checkbox')e.checked=!!raw[id];else e.value=raw[id]}});
  ['block1','block2','block3'].forEach(function(id){blockChoice[id]=raw[id]||''});
- render();
+ savedRoutineDone=raw.routineDone||{};
+ render();renderRoutines();
  var savedFirst=raw.first;
  if(savedFirst && taskNames().indexOf(savedFirst)>=0){$('first').value=savedFirst;buildAgenda()}
  refreshSummary();
@@ -206,7 +233,7 @@ function restore(){
 function importFromPool(){
  if(!/(?:\?|&)fromPool=1(?:&|$)/.test(window.location.search))return;
  var payload;try{payload=JSON.parse(localStorage.getItem(handoffKey)||'null')}catch(e){payload=null}
- if(!payload||!Array.isArray(payload.tasks)||!payload.tasks.length){showStatus(' · 无可导入的任务，请先到任务池选择');return}
+ if(!payload||!Array.isArray(payload.tasks)||!Array.isArray(payload.routines||[])||(!payload.tasks.length&&!(payload.routines||[]).length)){showStatus(' · 无可导入的任务，请先到任务池选择');return}
  if(!['60','75','90'].includes(String(payload.duration))){showStatus(' · 导入的时长无效');return}
  $('sessionDate').value=payload.date;
  $('duration').value=String(payload.duration);
@@ -218,25 +245,32 @@ function importFromPool(){
  }
  $('promiseDone').checked=false;$('win').value='';$('next').value='';$('guide').value='';
  $('join').checked=false;$('adult').checked=false;
- blockChoice={block1:'',block2:'',block3:''};
- render();save();
+ blockChoice={block1:'',block2:'',block3:''};savedRoutineDone={};
  try{localStorage.setItem(activeKey,JSON.stringify(payload))}catch(e){}
+ render();renderRoutines();save();
  showStatus(' · 已从每周任务池载入，可与 Lemon 再确认顺序、责任和奖励');
  try{window.history.replaceState(null,'',window.location.pathname)}catch(e){}
 }
 function syncPool(){
  var active;try{active=JSON.parse(localStorage.getItem(activeKey)||'null')}catch(e){active=null}
- if(!active||!active.tasks||!active.tasks.length){showStatus(' · 本次不是从任务池载入，请先回到任务池手动标记');return}
+ if(!active||(!active.tasks?.length&&!active.routines?.length)){showStatus(' · 本次不是从任务池载入，请先回到任务池手动标记');return}
  if($('sessionDate').value!==active.date){showStatus(' · 日期已改变，请在任务池中手动核对后更新');return}
  var pool;try{pool=JSON.parse(localStorage.getItem(poolKey)||'null')}catch(e){pool=null}
  if(!pool||!pool.done){showStatus(' · 找不到本地任务池，请先到任务池确认');return}
  var count=0,skipped=0;
- active.tasks.forEach(function(task,i){
+ (active.tasks||[]).forEach(function(task,i){
   if(i>=3||!task||!task.id)return;
   if($('task'+i).value!==task.title){skipped++;return}
   var key=active.week+'|'+task.id;
   pool.done[key]=$('done'+i).checked;
   if($('done'+i).checked)count++;
+ });
+ (active.routines||[]).forEach(function(task){
+  if(!task||!task.id)return;
+  var checkbox=Array.from($('routineChecks').querySelectorAll('[data-routine-done]')).find(function(x){return x.dataset.routineDone===task.id});
+  if(!checkbox)return;
+  pool.done[active.date+'|'+task.id]=checkbox.checked;
+  if(checkbox.checked)count++;
  });
  try{localStorage.setItem(poolKey,JSON.stringify(pool));showStatus(' · 已回写 '+count+' 项完成状态'+(skipped?'；'+skipped+' 项名称更改需手动核对':''))}
  catch(e){showStatus(' · 回写失败，请先复制记录')}
@@ -247,6 +281,7 @@ function agreement(){
  var t='Lemon｜一次学习的共同约定\n日期：'+line('sessionDate')+'  总时长：'+mins()+'分钟（含休息）\n\n';
  t+='【任务与标准】\n';
  [0,1,2].forEach(function(n){if(line('task'+n)!=='未填写'){t+=(n+1)+'. '+line('task'+n)+'：'+line('goal'+n)+'\n'}});
+ $('routineChecks').querySelectorAll('[data-routine-done]').forEach(function(e){t+=(e.checked?'[已完成] ':'[待完成] ')+e.parentElement.textContent.trim()+'\n'});
  t+='\n【共同决定】\n';
  t+='先做：'+$('first').value+'\nLemon 负责：'+$('promise').value+'\n额外奖励：'+rewardValue()+'\n';
  t+='已共同确认：'+check('join')+'；成人确认不临时加量：'+check('adult')+'\n\n';
@@ -276,8 +311,8 @@ $('reset').addEventListener('click',function(){
  try{localStorage.removeItem(storageKey);localStorage.removeItem(activeKey)}catch(e){}
  fields.forEach(function(id){if(!Object.prototype.hasOwnProperty.call(defaults,id))return;var e=$(id);if(e.type==='checkbox')e.checked=defaults[id];else e.value=defaults[id]});
  $('sessionDate').value=today();
- blockChoice={block1:'',block2:'',block3:''};
- render();save();showStatus(' · 已恢复默认示例');
+ blockChoice={block1:'',block2:'',block3:''};savedRoutineDone={};
+ render();renderRoutines();save();showStatus(' · 已恢复默认示例');
 });
 fields.forEach(function(id){var e=$(id);defaults[id]=e.type==='checkbox'?e.checked:e.value});
 restore();
@@ -285,8 +320,9 @@ importFromPool();
 fields.forEach(function(id){
  var e=$(id);
  e.addEventListener(e.type==='checkbox'||e.tagName==='SELECT'||e.type==='date'?'change':'input',function(){
- if(id==='task0'||id==='task1'||id==='task2'||id==='duration'){var firstWas=$('first').value;render();if(taskNames().indexOf(firstWas)>=0){$('first').value=firstWas;blockChoice.block1=firstWas;buildAgenda()}}
+ if(id==='task0'||id==='task1'||id==='task2'||id==='duration'){var firstWas=$('first').value;render();renderRoutines();if(taskNames().indexOf(firstWas)>=0){$('first').value=firstWas;blockChoice.block1=firstWas;buildAgenda()}}
  else if(id==='first'){blockChoice.block1=$('first').value;buildAgenda()}
+ else if(id==='sessionDate'){render();renderRoutines()}
  else if(id==='reward'){$('rewardOther').disabled=$('reward').value!=='other'}
  save();
  });
