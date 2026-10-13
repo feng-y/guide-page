@@ -34,7 +34,7 @@ button{font:700 13px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",s
 <section class="card"><h2>01 · 本周节奏</h2><p class="intro muted">这是每周的固定提醒；“出现任务”不等于“当天必须做完”。课程真实截止时间由家长确认后调整。</p>
 <div class="weeknav"><button type="button" class="outline" id="prev">← 上周</button><strong id="weekTitle"></strong><button type="button" class="outline" id="next">下周 →</button></div><div id="weekdays" class="weekdays"></div>
 <div id="dayInfo" class="callout"></div></section>
-<section class="card"><h2>02 · 从任务池挑选今天做什么</h2><p class="intro muted">先处理必要任务与时间敏感的作业；如果时间不够，就不再额外塞入书写训练。</p><div id="pool"></div></section>
+<section class="card"><h2>02 · 从任务池挑选今天做什么</h2><p class="intro muted">每天的新东方小书童、单词训练作为<b>每日例行</b>单列，不占三个主任务名额；先处理必要任务与时间敏感的作业，负荷过高时与成人商量调整。</p><div id="pool"></div></section>
 <section class="card"><h2>03 · 补充当天真实作业</h2><p class="intro muted">课内语数英、数学《学霸》和其他作业每天不一样。可以先点常用任务模板，再补充真实页数、内容和完成标准；下方选择的日期用于该任务的安排日。</p>
 <div id="quick" class="quick"><button type="button" class="outline mini" data-quick="school-zh">+ 课内语文</button><button type="button" class="outline mini" data-quick="school-math">+ 课内数学</button><button type="button" class="outline mini" data-quick="school-en">+ 课内英语</button><button type="button" class="outline mini" data-quick="xueba">+ 数学《学霸》</button><button type="button" class="outline mini" data-quick="extra">+ 其他课外</button></div>
 <div class="form"><div class="field full"><label for="newName">具体任务</label><input id="newName" placeholder="例如：数学课内练习第3页 / 语文背诵"></div>
@@ -73,21 +73,24 @@ function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'
 function dateOf(m,n){var d=new Date(m);d.setDate(d.getDate()+n);return d}
 function safe(text){return String(text).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 var week=mon(today),day=(today.getDay()+6)%7;
-var state={tasks:{},selected:{},done:{},duration:90,lang:'zh',level:'50字'};
+var state={tasks:{},selected:{},done:{},routines:{},duration:90,lang:'zh',level:'50字'};
 var fixed=[
  {id:'course-pu3-wed',name:'有道 Power Up 3 · 周三作业',type:'course',days:[2],minutes:20,goal:'先确认当天实际作业要求，再安排互动练习与独立完成',note:'周三固定作业来源；实际完成期限需按课程要求确认'},
  {id:'course-pu3-sat',name:'有道 Power Up 3 · 周六作业',type:'course',days:[5],minutes:20,goal:'先确认当天实际作业要求，再安排互动练习与独立完成',note:'周六固定作业来源；实际完成期限需按课程要求确认'},
- {id:'course-pu2',name:'新东方 PU2 · 上周日课程作业',type:'course',days:[2,3],minutes:25,goal:'按真实作业量拆分，计划在周三或周四完成',note:'周日课程形成的作业，周三～周四为计划处理窗口'}
+ {id:'course-pu2',name:'新东方 PU2 · 上周日课程作业',type:'course',days:[2,3],minutes:25,goal:'按真实作业量拆分，计划在周三或周四完成',note:'周日课程形成的作业，周三～周四为计划处理窗口'},
+ {id:'xdf-reader',name:'新东方 · 每日小书童训练',type:'course',daily:true,days:[0,1,2,3,4,5,6],minutes:8,goal:'按小书童当天训练内容进行，成人先互动引导，再让 Lemon 尝试',note:'每日例行；8分钟为初始预算，实际按任务量调整'},
+ {id:'xdf-vocab',name:'新东方 · 每日单词训练',type:'course',daily:true,days:[0,1,2,3,4,5,6],minutes:8,goal:'先读/听/理解，再尝试提取与运用；根据当天实际词量安排',note:'每日例行；8分钟为初始预算，实际按任务量调整'}
 ];
 var category={school:'课内必做',course:'课程作业',extra:'弹性巩固',writing:'能力训练'};
 function getWeek(){return ymd(week)}
 function dateKey(){return ymd(dateOf(week,day))}
-function token(id){return getWeek()+'|'+id}
+function token(id){var t=find(id);return (t&&t.daily?dateKey():getWeek())+'|'+id}
 function selected(){return state.selected[dateKey()]||[]}
+function routines(){return fixed.filter(function(t){return t.daily&&((state.routines[dateKey()]||null)===null||state.routines[dateKey()].indexOf(t.id)>=0)})}
 function allTasks(){return fixed.concat(Object.values(state.tasks).filter(function(t){return t.week===getWeek() || t.type==='writing'&&t.week===getWeek()}))}
 function find(id){return allTasks().find(function(x){return x.id===id})}
 function save(){try{localStorage.setItem(key,JSON.stringify(state))}catch(e){}}
-function load(){try{var v=JSON.parse(localStorage.getItem(key)||'null');if(v&&typeof v==='object'){state=Object.assign(state,v);state.tasks=state.tasks||{};state.selected=state.selected||{};state.done=state.done||{}}}catch(e){}}
+function load(){try{var v=JSON.parse(localStorage.getItem(key)||'null');if(v&&typeof v==='object'){state=Object.assign(state,v);state.tasks=state.tasks||{};state.selected=state.selected||{};state.done=state.done||{};state.routines=state.routines||{}}}catch(e){}}
 function labelDate(){return dateKey()+' · '+dayNames[day]}
 function writeLevels(){return state.lang==='zh'?['50字','100字','150字','250字','350字','500字']:['1行','2～3行','5行','一个短段','一页短文']}
 function renderLevels(){var levels=writeLevels();if(!levels.includes(state.level))state.level=levels[0];$('level').innerHTML=levels.map(function(x){return '<option>'+safe(x)+'</option>'}).join('');$('level').value=state.level}
@@ -105,8 +108,9 @@ function renderPool(){
  var current=selected(),items=allTasks().filter(function(t){return !t.date||t.date===dateKey()});
  items.sort(function(a,b){var aa=taskEligible(a)?0:1,bb=taskEligible(b)?0:1;return aa-bb||taskOrder(a)-taskOrder(b)});
  var sections=[
- {label:'今天的优先候选',hint:'有固定节奏的课程作业与当天课内任务',filter:function(t){return (t.days&&taskEligible(t))||(t.date===dateKey()&&t.type!=='writing')}},
- {label:'其余可调度任务',hint:'固定任务也可以由成人提前或顺延安排',filter:function(t){return !taskEligible(t)&&!t.date}},
+ {label:'新东方 · 每日例行',hint:'小书童、单词训练每天出现；可以选择是否放入今天的辅导时段',filter:function(t){return !!t.daily}},
+ {label:'今天的优先候选',hint:'有固定节奏的课程作业与当天课内任务',filter:function(t){return !t.daily&&((t.days&&taskEligible(t))||(t.date===dateKey()&&t.type!=='writing'))}},
+ {label:'其余可调度任务',hint:'固定任务也可以由成人提前或顺延安排',filter:function(t){return !t.daily&&!taskEligible(t)&&!t.date}},
  {label:'可选训练',hint:'只有今天确实有余量时才选',filter:function(t){return t.date===dateKey()&&t.type==='writing'}}
  ];
  var html='';
@@ -116,16 +120,17 @@ function renderPool(){
  html+='<div class="sectionlabel"><b>'+sec.label+'</b><span>'+sec.hint+'</span></div>';
  if(!arr.length)html+='<div class="empty">今天尚未填写真实的学校作业；请在下方补充。</div>';
  arr.forEach(function(t){
- var on=current.includes(t.id),done=!!state.done[token(t.id)],label=category[t.type]||'其他';
+ var on=t.daily?routines().some(function(x){return x.id===t.id}):current.includes(t.id),done=!!state.done[token(t.id)],label=t.daily?'每日例行':(category[t.type]||'其他');
  html+='<div class="task '+(on?'onduty ':'')+(done?'done':'')+'"><div class="tasktop"><div class="taskname">'+safe(t.name)+'</div><span class="tasklabel">'+label+'</span></div>';
  html+='<div class="taskmeta">'+safe(t.note||t.goal||'')+' · 预计 '+t.minutes+' 分钟'+(done?' · 已完成':'')+'</div>';
- html+='<div class="taskactions"><button type="button" class="'+(on?'outline':'secondary')+' mini" data-toggle="'+safe(t.id)+'">'+(on?'移出今天':'加入今天')+'</button>';
+ html+='<div class="taskactions"><button type="button" class="'+(on?'outline':'secondary')+' mini" '+(t.daily?'data-routine':'data-toggle')+'="'+safe(t.id)+'">'+(on?(t.daily?'今日暂不安排':'移出今天'):(t.daily?'加入今日例行':'加入今天'))+'</button>';
  html+='<button type="button" class="outline mini" data-done="'+safe(t.id)+'">'+(done?'撤销完成':'标记完成')+'</button>';
  if(!t.days)html+='<button type="button" class="outline mini" data-del="'+safe(t.id)+'">删除</button>';
  html+='</div></div>';
  });
  });
  $('pool').innerHTML=html;
+ $('pool').querySelectorAll('[data-routine]').forEach(function(b){b.addEventListener('click',function(){var id=b.dataset.routine,arr=routines().map(function(t){return t.id});if(arr.includes(id))arr=arr.filter(function(x){return x!==id});else arr.push(id);state.routines[dateKey()]=arr;save();render()})});
  $('pool').querySelectorAll('[data-toggle]').forEach(function(b){b.addEventListener('click',function(){var id=b.dataset.toggle,arr=selected().slice();if(arr.includes(id))arr=arr.filter(function(x){return x!==id});else if(arr.length<3)arr.push(id);else{notice('一次最多选择3项主任务');return}state.selected[dateKey()]=arr;save();render()})});
  $('pool').querySelectorAll('[data-done]').forEach(function(b){b.addEventListener('click',function(){var id=b.dataset.done;state.done[token(id)]=!state.done[token(id)];save();render()})});
  $('pool').querySelectorAll('[data-del]').forEach(function(b){b.addEventListener('click',function(){var id=b.dataset.del;delete state.tasks[id];Object.keys(state.selected).forEach(function(k){state.selected[k]=state.selected[k].filter(function(x){return x!==id})});save();render()})});
@@ -133,16 +138,16 @@ function renderPool(){
 function budget(){return Number(state.duration)-(state.duration===90?20:state.duration===75?18:18)}
 function renderSelection(){
  var arr=selected().map(find).filter(Boolean);
- var sum=arr.reduce(function(v,t){return v+Number(t.minutes||0)},0),b=budget();
+ var rs=routines(),routineMins=rs.reduce(function(v,t){return v+Number(t.minutes||0)},0),sum=arr.reduce(function(v,t){return v+Number(t.minutes||0)},routineMins),b=budget();
  $('duration').value=String(state.duration);
- $('used').textContent=sum+'分钟';$('budget').textContent='学习任务容量参考约 '+b+'分钟';
+ $('used').textContent=sum+'分钟（含每日例行'+routineMins+'分钟）';$('budget').textContent='学习任务容量参考约 '+b+'分钟';
  $('fill').style.width=Math.min(100,Math.round(sum/b*100))+'%';
  $('meter').className='meter'+(sum>b?' over':'');
  $('capacity').textContent=sum>b?'预估超时，建议减量':sum===0?'尚未选任务':'剩余约 '+Math.max(0,b-sum)+'分钟';
- $('selected').innerHTML=arr.length?arr.map(function(t,i){return '<div class="selection"><div><b>'+(i+1)+'. '+safe(t.name)+'</b><small>'+t.minutes+'分钟 · '+safe(t.goal)+'</small></div><button class="outline mini" data-remove="'+safe(t.id)+'">移除</button></div>'}).join(''):'<div class="empty">先从左侧选择今天要共同完成的任务。</div>';
+ $('selected').innerHTML=(rs.length?'<div class="sectionlabel"><b>每日例行</b><span>自动安排，可移出</span></div>'+rs.map(function(t){return '<div class="selection"><div><b>'+safe(t.name)+'</b><small>约'+t.minutes+'分钟 · 可调整</small></div></div>'}).join(''):'')+(arr.length?arr.map(function(t,i){return '<div class="selection"><div><b>'+(i+1)+'. '+safe(t.name)+'</b><small>'+t.minutes+'分钟 · '+safe(t.goal)+'</small></div><button class="outline mini" data-remove="'+safe(t.id)+'">移除</button></div>'}).join(''):'<div class="empty">今天还没选择主任务，可以只安排每日例行。</div>');
  $('selected').querySelectorAll('[data-remove]').forEach(function(e){e.addEventListener('click',function(){state.selected[dateKey()]=selected().filter(function(x){return x!==e.dataset.remove});save();render()})});
  $('selectHint').textContent=sum>b?'请先缩减任务量或调整预估时间；不要让 Lemon 背负无法完成的约定。':'预估仅供成人判断：总时长还包括计划、互动讨论、休息和收尾。';
- $('openSession').disabled=!arr.length;
+ $('openSession').disabled=!(arr.length||rs.length);
 }
 function render(){renderWeek();renderPool();renderSelection();renderLevels();save()}
 function notice(msg){$('status').textContent=msg}
@@ -178,21 +183,22 @@ $('addWrite').addEventListener('click',function(){
  render();
 });
 function planText(){
- var tasks=selected().map(find).filter(Boolean);
+ var tasks=selected().map(find).filter(Boolean),rs=routines();
  var s='Lemon｜'+labelDate()+' 任务安排（'+state.duration+'分钟含互动、休息）\n';
- s+='【今天选择】\n'+tasks.map(function(t,i){return (i+1)+'. '+t.name+'（粗估'+t.minutes+'分钟）— '+t.goal}).join('\n');
+ s+='【每日例行】\n'+(rs.map(function(t){return t.name+'（约'+t.minutes+'分钟）— '+t.goal}).join('\n')||'今天未安排')+'\n';
+ s+='【今天选择的主任务】\n'+(tasks.map(function(t,i){return (i+1)+'. '+t.name+'（粗估'+t.minutes+'分钟）— '+t.goal}).join('\n')||'本次仅安排每日例行');
  s+='\n【师生共学】先交流方法 → 一起示范/讨论 → Lemon 短时独立尝试 → 共同反馈。\n【边界】成人把控任务量；不逐题监考，不临时加码；剩余任务另行安排。';
  return s;
 }
 $('copy').addEventListener('click',function(){
  var str=planText();
- if(!selected().length){notice('先挑选今天的任务');return}
+ if(!selected().length&&!routines().length){notice('先挑选今天的任务');return}
  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(str).then(function(){notice('已复制，可以发给家教')},function(){notice('复制失败，请尝试使用电脑浏览器')});
  else{var el=document.createElement('textarea');el.value=str;document.body.appendChild(el);el.select();var ok=document.execCommand('copy');el.remove();notice(ok?'已复制':'复制失败')}
 });
 $('openSession').addEventListener('click',function(){
- var arr=selected().map(find).filter(Boolean);if(!arr.length)return;
- var payload={date:dateKey(),duration:state.duration,week:getWeek(),tasks:arr.map(function(t){return {id:t.id,title:t.name,goal:t.goal}})};
+ var arr=selected().map(find).filter(Boolean),rs=routines();if(!arr.length&&!rs.length)return;
+ var payload={date:dateKey(),duration:state.duration,week:getWeek(),tasks:arr.map(function(t){return {id:t.id,title:t.name,goal:t.goal}}),routines:rs.map(function(t){return {id:t.id,title:t.name,goal:t.goal,minutes:t.minutes}})};
  try{localStorage.setItem(handoffKey,JSON.stringify(payload))}catch(e){notice('浏览器存储不可用，请先复制计划');return}
  window.location.href='./?fromPool=1';
 });
