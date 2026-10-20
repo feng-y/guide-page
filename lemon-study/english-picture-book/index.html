@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#fffaf1">
+  <meta name="description" content="和 Lemon 一起找小红球。8页英语小绘本，复习19个动物与动作词，以及 near、below、opposite 等方位词。">
+  <title>小红球在哪里？ · Lemon 英语小绘本</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Ccircle cx='24' cy='24' r='20' fill='%23ce5141'/%3E%3Cpath d='M9 35Q25 32 35 9' fill='none' stroke='white' stroke-width='4'/%3E%3C/svg%3E">
+  <link rel="preload" href="./assets/story-art.webp" as="image">
+  <link rel="stylesheet" href="./style.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <header class="masthead">
+      <a class="brand" href="../"><span class="brand-mark" aria-hidden="true">L</span> LEMON <span class="brand-sub">/ LITTLE ENGLISH</span></a>
+      <a class="back-link" href="../">返回学习页 <span aria-hidden="true">↗</span></a>
+    </header>
+    <nav class="tabs" aria-label="绘本内容">
+      <button type="button" data-view="story" aria-current="page"><span aria-hidden="true">01</span> 读故事</button>
+      <button type="button" data-view="words"><span aria-hidden="true">02</span> 复习单词</button>
+      <button type="button" data-view="quiz"><span aria-hidden="true">03</span> 看图练习</button>
+    </nav>
+    <main id="main">
+      <section id="storyView" aria-label="英语绘本">
+        <div class="reader-heading"><p class="eyebrow">A LITTLE ADVENTURE FOR LEMON</p><span id="pageLabel" class="page-label">封面 · 8页故事</span></div>
+        <article class="book" id="book">
+          <div id="storyArt" class="art" role="img" aria-label="兔子、袋鼠和小红球坐在树旁"></div>
+          <div class="story-copy" id="storyCopy">
+            <div><p class="chapter" id="chapter">和 Lemon、小动物一起，找回小红球。</p><h1 id="storyTitle" lang="en">Where Is<br>the <span class="red">Red Ball?</span></h1><p class="cover-chinese" id="coverChinese">小红球在哪里？</p></div>
+            <div id="storyLines" class="sentences"></div>
+            <div id="storyChinese" class="translation"></div>
+            <div id="storyWords" class="word-strip"></div>
+            <div class="read-tools"><button type="button" id="readPage" class="pill primary"><span aria-hidden="true">▶</span> 朗读这一页</button><button type="button" id="toggleChinese" class="pill" aria-pressed="true">中文已显示</button></div>
+          </div>
+        </article>
+        <div class="reader-controls"><button type="button" id="prevPage" class="turn" disabled aria-label="上一页">← <span>上一页</span></button><div id="pageDots" class="page-dots" aria-label="选择页码"></div><button type="button" id="nextPage" class="turn">开始读 <span aria-hidden="true">→</span></button></div>
+        <p class="reading-note" id="readingNote">先看图，再读句子。指一指：谁在谁的哪里？</p>
+      </section>
+
+      <section id="wordsView" hidden aria-labelledby="wordsTitle">
+        <div class="section-intro"><div><p class="eyebrow">WORDS IN OUR STORY</p><h1 id="wordsTitle">把故事里的词，<br>变成自己会的词。</h1><p>本周19个词，外加6个方位词。点小喇叭听读，也可以遮住英文试着拼。</p></div><button type="button" id="hideEnglish" class="pill" aria-pressed="false">遮住英文</button></div>
+        <div id="wordGroups"></div>
+        <div class="gentle-note"><span aria-hidden="true">✦</span><p>动作词按原形复习。故事里的 <b lang="en">falls</b> 对应 <b lang="en">fall</b>；听写写哪种形式，以老师要求为准。</p></div>
+      </section>
+
+      <section id="quizView" hidden aria-labelledby="quizTitle">
+        <div class="section-intro"><div><p class="eyebrow">LOOK, POINT & SAY</p><h1 id="quizTitle">看清位置，<br>再说出你的答案。</h1><p>先找句子说的是谁，再找它和谁比。</p></div><span id="quizProgress" class="page-label">1 / 6</span></div>
+        <div class="quiz-layout"><div id="quizArt" class="art" role="img"></div><div class="quiz-copy"><p id="quizPrompt" class="quiz-prompt" lang="en"></p><p id="quizChinese" class="quiz-chinese"></p><div id="quizOptions" class="quiz-options"></div><div id="quizFeedback" class="quiz-feedback" role="status" aria-live="polite"></div><button id="nextQuiz" type="button" class="pill primary" disabled>下一题 →</button></div></div>
+        <div id="quizFinish" class="quiz-finish" hidden><h2>这次看图练习完成啦。</h2><p>再用自己的话说一说：below 和 opposite 有什么不同？</p><button id="restartQuiz" type="button" class="pill">再练一次</button><button id="backToStory" type="button" class="pill primary">回到故事</button></div>
+      </section>
+      <noscript><p class="gentle-note">请开启浏览器 JavaScript，以使用翻页、词表与看图练习。</p></noscript>
+    </main>
+    <footer><span>Made for Lemon. A little every day.</span><span>读一读 · 指一指 · 自己说</span></footer>
+    <div id="audioStatus" class="audio-status" role="status" aria-live="polite"></div>
+  </div>
+</body>
+</html>
