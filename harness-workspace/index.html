@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="独立 AI-Native Harness 设计、MultiCA 退出决策与分阶段交付路线">
+<title>AI-Native Harness · 独立系统设计</title>
+<style>
+:root{--bg:#f7f8fa;--paper:#fff;--ink:#1a2936;--muted:#657584;--line:#e0e6ea;--blue:#1e577a;--pale:#e9f1f5;--green:#286a4c;--warn:#926126}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.7 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft Yahei",sans-serif}a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}code{font:0.92em ui-monospace,Menlo,Consolas,monospace;background:#edf1f4;padding:2px 5px;border-radius:4px}
+header{background:var(--paper);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:2}
+.top{max-width:1120px;padding:12px 26px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:18px}
+.brand{font-weight:750;letter-spacing:-.025em}.links{display:flex;gap:20px;align-items:center;font-size:13px;color:var(--muted)}
+main{max-width:1120px;margin:0 auto;padding:32px 26px 78px}.hero{background:#152b3a;color:#f1f6f9;border-radius:17px;padding:37px 42px;margin-bottom:25px}
+.eyebrow{font-size:12px;letter-spacing:.1em;text-transform:uppercase;opacity:.72;font-weight:700}
+h1{font-size:clamp(28px,4vw,45px);line-height:1.2;letter-spacing:-.04em;margin:13px 0 15px;font-weight:760}
+.hero p{color:#d1dde4;font-size:17px;max-width:810px;margin:0 0 22px}
+.tags{display:flex;gap:9px;flex-wrap:wrap}.tags span{font-size:12px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.16);padding:4px 10px;border-radius:25px}
+section{margin-top:35px;scroll-margin-top:70px}h2{font-size:23px;line-height:1.3;margin:0 0 12px;letter-spacing:-.026em}h3{font-size:16px;margin:0 0 8px}p{margin:8px 0 15px}.muted{color:var(--muted)}.tiny{font-size:12px}.lead{font-size:16px;max-width:900px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:19px}
+.card p{color:var(--muted);margin:4px 0 0;font-size:13px}.kicker{font-size:12px;color:var(--blue);font-weight:750;text-transform:uppercase;letter-spacing:.045em}
+.arch{background:#fff;border:1px solid var(--line);padding:22px;border-radius:14px}
+.layer{background:#f2f6f8;border:1px solid #dee7ed;padding:14px;border-radius:10px;text-align:center}
+.layer strong{display:block;font-size:15px}.layer small{display:block;color:var(--muted);font-size:12px;margin-top:4px}
+.row{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.row.four{grid-template-columns:repeat(4,1fr)}.arr{text-align:center;height:29px;color:#8298a7;font-size:21px;line-height:29px}.layer.hi{background:#eaf3f2;border-color:#caddd7}
+.alert{background:#eef4f7;border-left:3px solid #467b98;padding:13px 18px;border-radius:0 10px 10px 0;margin-top:16px}
+table{width:100%;border-collapse:separate;border-spacing:0;background:white;border:1px solid var(--line);border-radius:12px;overflow:hidden}th,td{padding:11px 14px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line);font-size:13px}th{background:#eff4f7;color:#30495a;font-weight:700}tr:last-child td{border:0}
+.seq{display:grid;grid-template-columns:40px 1fr;gap:13px;margin:14px 0;align-items:start}.num{width:37px;height:37px;background:#eaf0f4;border-radius:9px;display:grid;place-items:center;font-weight:750;color:var(--blue)}.seq p{margin:3px 0;color:var(--muted);font-size:13px}
+.note{border:1px solid #e5d5b9;background:#fbf7ef;border-radius:12px;padding:17px 19px;color:#53462f}.note strong{color:#80571c}
+footer{padding-top:30px;margin-top:47px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}
+@media(max-width:720px){.top{padding:12px 17px;display:block}.links{margin-top:5px;flex-wrap:wrap;gap:12px}main{padding:20px 15px 55px}.hero{padding:28px 23px}.hero p{font-size:15px}.grid,.grid.two{grid-template-columns:1fr}.row.four{grid-template-columns:repeat(2,minmax(0,1fr))}.arch{padding:12px}th,td{padding:9px 8px}}
+</style>
+</head>
+<body>
+<header><nav class="top" aria-label="页面导航"><div class="brand">Harness Workspace <span style="color:#91a4b1;font-weight:500">/ Design</span></div><div class="links"><a href="#architecture">架构</a><a href="#decisions">已确定</a><a href="#roadmap">推进路线</a><a href="#questions">待解决问题</a><a href="https://github.com/feng-y/guide-page/tree/main/harness-workspace">页面源码</a></div></nav></header>
+<main>
+<div class="hero"><div class="eyebrow">Independent system · Design baseline · 2026.11.15</div>
+<h1>从 MultiCA 退出，<br>重新构建 AI-Native Harness</h1>
+<p>不是再做一个多 Agent 管理平台，而是让 Codex、Pi、Claude Code 真正利用领域 Harness、内部知识和业务工具，完成单次或持续性工作。</p>
+<div class="tags"><span>Web-first</span><span>显式 @superagent</span><span>Magpie = 模型工程 Harness</span><span>零 MultiCA 运行依赖</span></div></div>
+<section id="overview"><h2>目标与范围</h2><p class="lead">Chat、Scheduler 和 Board 是 Web 内部入口；企业微信等 Bot 是外部交互入口。Agent Runtime 和 SuperAgent 是后端可调用能力。Harness 提供领域工作方法、知识与工具，不新造 Agent Loop。</p>
+<div class="grid">
+<div class="card"><div class="kicker">01 · Use</div><h3>直接使用成熟 Agent</h3><p>普通 Chat 直接调用选择的 Codex / Pi / Claude Code；不进行隐式 SuperAgent 升级。</p></div>
+<div class="card"><div class="kicker">02 · Equip</div><h3>接入领域工作能力</h3><p>Magpie 是模型工程领域 Harness，按需加载现有 Skills、规则、上下文、知识和工具。</p></div>
+<div class="card"><div class="kicker">03 · Continue</div><h3>按需持续执行</h3><p>只有显式 <code>@superagent</code> 才进入 SuperAgent 通路，组合 Runtime 并维持持久 Task。</p></div>
+</div></section>
+<section id="architecture"><h2>最小架构</h2><div class="arch">
+<div class="row four"><div class="layer"><strong>Chat</strong><small>Web 对话</small></div><div class="layer"><strong>Scheduler</strong><small>定时触发</small></div><div class="layer"><strong>Board</strong><small>任务操作</small></div><div class="layer"><strong>Bot</strong><small>外部入口 · 后续</small></div></div>
+<div class="arr">↓</div><div class="layer"><strong>Workspace Backend</strong><small>身份 · 显式路由 · Session / Task / Run · 事件 · 定时管理</small></div>
+<div class="arr">↓</div><div class="row"><div class="layer hi"><strong>Agent Runtime</strong><small>Codex / Pi / Claude Code · 普通 Chat 直达</small></div><div class="layer hi"><strong>SuperAgent</strong><small>显式调用 · 组合 Runtime · 持续推进</small></div></div>
+<div class="arr">↕</div><div class="layer"><strong>Domain Harness · Knowledge · Integrations</strong><small>Magpie / 既有 Skills · Repo Identity · 内部 Wiki · MCP / API · 业务系统</small></div>
+<div class="arr">↕</div><div class="layer"><strong>Persistent State</strong><small>Session · Task · Run · Events · Evidence / Taskbook</small></div>
+</div><div class="alert"><strong>边界：</strong>普通 Chat 只走当前选中的 Runtime；<code>@superagent</code> 是明确路由指令，不根据消息内容自动识别复杂度。Magpie 不单独部署为服务。</div></section>
+<section id="decisions"><h2>已经确定的设计决策</h2>
+<table><thead><tr><th style="width:24%">议题</th><th>决策</th></tr></thead><tbody>
+<tr><td>MultiCA</td><td>目标架构彻底废弃，不继承 Go Backend、Issue/Squad/Daemon、原 API 和数据模型；现有代码仅作经验参考。</td></tr>
+<tr><td>技术栈</td><td>TypeScript-first；首版单体后端 + Worker。Go/Python 仅在复用现成能力或需要时采用，不引入微服务平台。</td></tr>
+<tr><td>Harness</td><td>领域 Harness（Magpie）以现有仓库和原生机制复用，不为其开发第二套 Builder / Service Registry。</td></tr>
+<tr><td>SuperAgent</td><td>一种后端服务能力，组合现有 Runtime；保存目标、结果、下一步，不重写 Agent 内部 Loop。</td></tr>
+<tr><td>持续改进</td><td>从真实任务的失败和使用反馈自然改进 Harness / Tools；不先建独立通用 Evaluation 平台。</td></tr>
+<tr><td>后置能力</td><td>Bot、BYOC、复杂多租户执行隔离、完整 CMS，在核心工作闭环跑通后推进。</td></tr>
+</tbody></table></section>
+<section id="roadmap"><h2>推进路线</h2>
+<div class="seq"><div class="num">01</div><div><h3>建立独立系统骨架</h3><p>自有 Web / Backend；普通 Chat 直连 Runtime，显式 <code>@superagent</code>，统一执行事件。禁止旧系统兼容路径进入新代码。</p></div></div>
+<div class="seq"><div class="num">02</div><div><h3>真实 Magpie 与内部能力贯通</h3><p>按原生约定加载模型工程 Harness；接入一个内部知识来源、一个真实业务工具，完成模型服务问题分析。</p></div></div>
+<div class="seq"><div class="num">03</div><div><h3>SuperAgent 持续任务闭环</h3><p>Taskbook 持久化，执行结果先吸收再推进；关闭 Chat 或重启后不依赖父 Session 的隐含上下文继续工作。</p></div></div>
+<div class="seq"><div class="num">04</div><div><h3>Scheduler / Board</h3><p>定时触发、查看运行记录、继续、停止和人工决策，所有入口共享 Task / Run，不产生第二套任务事实。</p></div></div>
+<div class="seq"><div class="num">05</div><div><h3>生产化与扩展</h3><p>认证、隔离、授权审批；接入企业微信等 Bot；按实际需求再考虑自带容器 BYOC。</p></div></div>
+</section>
+<section id="questions"><h2>还需要实际解决的问题</h2><div class="grid two">
+<div class="card"><h3>真实 CLI 契约</h3><p>Codex / Pi / Claude Code 在目标开发机上的会话保持、流式事件、工具审批与恢复语义是什么？</p></div>
+<div class="card"><h3>领域 Harness 复用</h3><p>Magpie 的真实仓库结构与各 Runtime 的 Skill 装载方式如何对应？不能只把 SKILL.md 拼进 Prompt。</p></div>
+<div class="card"><h3>首个内部知识与工具</h3><p>优先打通 DaVinci 的知识文档与监控查询；明确接口、权限和结果引用，不预建通用知识平台。</p></div>
+<div class="card"><h3>生产执行边界</h3><p>多用户登录、凭证隔离、运行权限、可重复执行的非幂等操作如何处理？不把当前单机原型暴露公网。</p></div>
+</div></section>
+<section><div class="note"><strong>发布状态说明</strong><p style="margin:6px 0 0">此页面是已经公开发布的<strong>方案与路线图</strong>，不是可调用模型的在线 Chat 服务。现有 Node 原型可本地运行，但真实 CLI、用户认证和隔离尚未完成，不能直接对公网开放。在线运行服务需要具有受控身份与持续进程能力的部署环境。</p></div></section>
+<footer>AI-Native Harness / Independent design · 2026-11-15 · <a href="https://github.com/feng-y/guide-page">Guide Page</a></footer>
+</main></body></html>
