@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Multi-tenant Agent Session Persistence · 架构方案</title>
+<meta name="description" content="Pi、Claude Code、Codex 在自有 Server 上的 MySQL 持久化、临时本地 Cache、跨机器恢复和用户隔离方案。">
+<style>
+:root{--bg:#f7f9fc;--paper:#fff;--ink:#142037;--muted:#506078;--line:#dfe5ee;--blue:#205ec6;--pale:#eaf1ff;--soft:#f2f5fa;--green:#16745a;--amber:#8a5916;--dark:#121b2d}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);background:var(--bg);font:15px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}p{margin:.55em 0 1em}h1{font-size:clamp(28px,4vw,42px);line-height:1.25;margin:12px 0}h2{font-size:23px;letter-spacing:-.02em;margin:0 0 14px}h3{font-size:17px;margin:24px 0 9px}small,.muted{color:var(--muted)}
+header{background:#fff;border-bottom:1px solid var(--line)}.top{max-width:1140px;margin:auto;padding:16px 25px;display:flex;justify-content:space-between;gap:15px;align-items:center}.brand{font-weight:750;color:var(--ink)}.navlinks{display:flex;gap:17px;flex-wrap:wrap;font-size:13px}
+.wrap{max-width:1140px;margin:auto;padding:30px 25px 90px}.hero{border:1px solid #d6e2f8;border-radius:16px;padding:30px;background:linear-gradient(128deg,#fff,#edf3ff)}.eyebrow{font-size:12px;font-weight:700;letter-spacing:.11em;color:var(--blue);text-transform:uppercase}.lead{font-size:18px;line-height:1.65;max-width:840px}.meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}.tag{font-size:12px;background:white;border:1px solid var(--line);border-radius:6px;padding:3px 9px;color:var(--muted)}
+.layout{display:grid;grid-template-columns:200px minmax(0,1fr);gap:26px;margin-top:28px}.toc{align-self:start;position:sticky;top:24px;background:#fff;padding:18px;border:1px solid var(--line);border-radius:12px}.toc strong{font-size:13px}.toc a{display:block;padding:7px 0;font-size:13px;color:var(--muted)}.toc a:hover{color:var(--blue)}
+section{background:var(--paper);border:1px solid var(--line);padding:26px 30px;border-radius:12px;margin-bottom:18px;scroll-margin-top:20px}.callout{border-left:4px solid var(--blue);background:#f1f6ff;padding:14px 18px;border-radius:0 8px 8px 0}.callout.warn{border-left-color:#cf9027;background:#fff9ed}.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.card{border:1px solid var(--line);border-radius:9px;padding:15px;background:#fcfdff}.card b{display:block;margin-bottom:5px}.card p{font-size:13px;margin:0;color:var(--muted)}.kicker{font-size:11px;font-weight:800;color:var(--blue);letter-spacing:.07em}
+pre{overflow-x:auto;background:var(--dark);border-radius:10px;padding:18px;color:#e5eefb;font:12.5px/1.65 ui-monospace,Menlo,Consolas,monospace;white-space:pre}.diagram{font-size:13px;line-height:1.75}code{font-family:ui-monospace,Menlo,Consolas,monospace}p code,li code,td code{font-size:.88em;background:var(--soft);border-radius:4px;padding:2px 4px}
+.table-scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:600px}th,td{padding:10px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}th{background:var(--soft);font-weight:700}tr:last-child td{border-bottom:0}
+.steps{counter-reset:st;list-style:none;padding:0}.steps li{position:relative;padding:2px 0 18px 42px;margin:0;border-left:1px solid var(--line);margin-left:13px}.steps li:last-child{border-left-color:transparent}.steps li:before{counter-increment:st;content:counter(st);position:absolute;left:-14px;top:1px;width:27px;height:27px;display:grid;place-items:center;border:1px solid #b7cef8;background:var(--pale);color:var(--blue);border-radius:100%;font-size:12px;font-weight:800}.steps li strong{display:block}
+ul{padding-left:23px}li{margin:5px 0}.foot{font-size:13px;color:var(--muted);margin-top:20px}.status{font-weight:700;color:var(--green)}.code-label{font-size:12px;letter-spacing:.03em;color:var(--muted);margin-bottom:6px}
+@media(max-width:850px){.layout{grid-template-columns:1fr}.toc{position:static;display:flex;gap:12px;overflow-x:auto;align-items:center}.toc strong{white-space:nowrap}.toc a{white-space:nowrap}.cards{grid-template-columns:1fr}section{padding:22px 18px}.hero{padding:25px 20px}}@media(max-width:480px){.wrap{padding:20px 12px 65px}.top{padding:12px}.navlinks{font-size:12px;gap:10px}.lead{font-size:16px}}
+</style>
+</head>
+<body>
+<header><div class="top"><a class="brand" href="../">Guide Page / Architecture Notes</a><div class="navlinks"><a href="../harness-workspace/">Harness Workspace</a><a href="../ai-engineering/">AI Engineering</a><a href="https://github.com/feng-y/guide-page">Source Repo</a></div></div></header>
+<main class="wrap">
+<div class="hero">
+<div class="eyebrow">Architecture Proposal · v0.1 · 2026-11-16</div>
+<h1>Multi-tenant Agent Session Persistence</h1>
+<p class="lead"><strong>MySQL 是唯一的 Session 持久化事实源；Server 本地状态只是可重建的临时 Cache。</strong> 支持 Pi / Claude Code / Codex 的原生 Session，按用户隔离、异步落库、跨机器恢复。允许故障时丢失尚未同步的少量最近状态。</p>
+<div class="meta"><span class="tag">Self-hosted</span><span class="tag">MySQL SoT</span><span class="tag">Write-behind Cache</span><span class="tag">User Isolation</span><span class="tag">Native Resume</span><span class="tag">Design Draft · 未实施</span></div>
+</div>
+<div class="layout">
+<nav class="toc" aria-label="文档目录"><strong>目录</strong><a href="#scope">01 目标与边界</a><a href="#arch">02 架构</a><a href="#flow">03 数据流</a><a href="#schema">04 MySQL 模型</a><a href="#adapters">05 Runtime 适配</a><a href="#isolation">06 用户隔离</a><a href="#consistency">07 一致性与丢失</a><a href="#acceptance">08 验收</a></nav>
+<div>
+<section id="scope"><h2>01 · 目标与非目标</h2>
+<div class="cards">
+<div class="card"><span class="kicker">MUST</span><b>Session 跨机器恢复</b><p>任意新 Worker 仅凭 MySQL 中的已提交 Session 状态和用户授权即可重建本地运行缓存。</p></div>
+<div class="card"><span class="kicker">MUST</span><b>多用户隔离</b><p>用户不能读取或恢复别人的 Session、Runtime Home、工作空间或身份凭证。</p></div>
+<div class="card"><span class="kicker">TRADE-OFF</span><b>允许少量近期状态丢失</b><p>先采用异步写回；同步频率与持久化等级留作后续演进。</p></div>
+</div>
+<p class="callout"><strong>范围：</strong>本页解决 Session Continuity（会话状态持续性），不承诺 Execution Continuity（中断中的工具调用自动继续）。代码 Workspace、Secrets、训练/部署副作用属于独立的持久化与恢复问题。</p>
+</section>
+<section id="arch"><h2>02 · 最小架构</h2>
+<pre class="diagram">                  Web Chat / SuperAgent
+                  user auth · session routing
+                              |
+                      Session Manager
+           ownership · version · active writer
+                              |
+                 Runtime Adapter interface
+                      /       |       \
+                     Pi    Claude     Codex
+                              |
+              +---------------+---------------+
+              |                               |
+    Worker A / B / N                        MySQL
+  isolated Runtime process           authoritative Session DB
+  temporary native files   &lt;------&gt;   metadata + native state
+  dirty tracking &amp; flush              committed version
+  (rebuildable cache)                  user ownership
+</pre>
+<p>Worker 执行期间，Runtime 仍使用自己熟悉的本地文件；Session Manager 在 Cache Miss 时从 MySQL 装载，在更新后异步 Flush。其他机器无需共享文件系统、远程 Volume 或 MinIO。</p>
+<div class="callout warn"><strong>写入所有权：</strong>同一个 Session 只允许一个有效 Writer。MySQL 负责判断谁有资格提交更新；旧 Worker 不能用过期版本覆盖新机器的提交。</div>
+</section>
+<section id="flow"><h2>03 · 生命周期与数据流</h2>
+<h3>新建 Session</h3>
+<ol class="steps"><li><strong>服务端鉴权并生成 Session ID</strong>MySQL 写入 user_id、runtime、初始状态和 owner epoch。</li><li><strong>创建隔离的本地 Cache</strong>为这个 Session 准备固定的 HOME、Runtime 数据目录和 Workspace 入口。</li><li><strong>调用原生 Runtime</strong>通过 Adapter 创建 Pi / Claude Code / Codex Session，持久化原生 Session ID。</li><li><strong>异步同步到 MySQL</strong>Runtime 文件发生变化时标记 dirty，在安全写入点生成状态包并提交。</li></ol>
+<h3>恢复到另一台 Server</h3>
+<ol class="steps"><li><strong>验证请求用户的 Session 所有权</strong>由服务端鉴权结果绑定 user_id，而非信任请求中的 user_id。</li><li><strong>取得当前写入权</strong>通过 MySQL Lease / owner epoch 阻止同一 Session 在两台 Worker 并发执行。</li><li><strong>下载最后已提交的原生状态</strong>解压到新 Worker 的本地临时目录，保留容器内部约定的固定绝对路径。</li><li><strong>恢复 Runtime 环境与 Native Session</strong>注入用户配置和授权，调用 Pi / Claude Code / Codex 原生 Resume。</li><li><strong>继续交互并回写 MySQL</strong>新的执行进度从新 Worker 的 Cache 异步同步，Session ID 不变。</li></ol>
+</section>
+<section id="schema"><h2>04 · MySQL 持久化模型</h2>
+<p>第一版用两张核心表即可表达会话归属和不可变状态版本。以下 SQL 为<strong>概念性建模</strong>，生产实现需再确定索引、清理策略、事务大小和恢复窗口。</p>
+<div class="code-label">Schema sketch</div>
+<pre>CREATE TABLE agent_sessions (
+  id                VARCHAR(64) PRIMARY KEY,
+  user_id           VARCHAR(64) NOT NULL,
+  runtime           VARCHAR(32) NOT NULL,
+  native_session_id VARCHAR(255),
+  committed_version BIGINT NOT NULL DEFAULT 0,
+  owner_epoch       BIGINT NOT NULL DEFAULT 0,
+  lease_owner       VARCHAR(128),
+  lease_expires_at  DATETIME(6),
+  status            VARCHAR(32) NOT NULL,
+  updated_at        DATETIME(6) NOT NULL,
+  KEY idx_user (user_id, updated_at)
+);
+
+CREATE TABLE session_states (
+  session_id    VARCHAR(64) NOT NULL,
+  version       BIGINT NOT NULL,
+  owner_epoch   BIGINT NOT NULL,
+  state_blob    LONGBLOB NOT NULL,
+  checksum      CHAR(64) NOT NULL,
+  created_at    DATETIME(6) NOT NULL,
+  PRIMARY KEY (session_id, version)
+);</pre>
+<p><code>state_blob</code> 是包含原生文件及 manifest 的压缩状态包，而不是统一消息格式；可以含多个文件及子目录。<code>committed_version</code> 只指向<strong>已经完整写入且通过校验</strong>的版本，必须在一个 MySQL 事务中提交。</p>
+<p>大状态包会增加 MySQL 读写、复制与备份成本；第一版需测量典型、P99 Session 大小与写入量，并检查 <code>max_allowed_packet</code> 等限制。增量状态、保留版本数及分块存储属于后续优化。</p>
+</section>
+<section id="adapters"><h2>05 · 三种 Runtime 的 Adapter</h2>
+<div class="table-scroll"><table><thead><tr><th>Runtime</th><th>需要保存的原生会话状态</th><th>恢复方式</th><th>注意事项</th></tr></thead><tbody>
+<tr><td><b>Pi</b></td><td>Session JSONL / 会话树及元信息</td><td>从还原的 Session 路径打开</td><td>维护 Session 目录和固定工作路径；用户 Skills / Secrets 不作为 Session Blob 一起保存</td></tr>
+<tr><td><b>Claude Code</b></td><td>项目下 Transcript / Session 元数据和 Resume 所需配置</td><td>使用原生 <code>--resume</code></td><td>项目目录编码依赖 CWD；仅同步 Transcript 可能不够，需用真实 Session 测试验证状态包边界</td></tr>
+<tr><td><b>Codex</b></td><td>Session JSONL、Resume 所需的状态索引及元数据</td><td>使用原生 <code>resume</code></td><td>可能涉及 SQLite、路径和索引；需一致性复制，不应直接读取正在写入的数据库文件</td></tr>
+</tbody></table></div>
+<h3>最小 Adapter 合同</h3>
+<pre>interface SessionAdapter {
+  create(localHome, workspace): NativeSession
+  resume(localHome, workspace, nativeSessionId): Runtime
+  checkpoint(localHome): ConsistentNativeState
+  restore(localHome, nativeState): void
+}</pre>
+<p><strong>Checkpoint 实现边界：</strong>每轮结束 / Runtime 空闲时生成一致的本地状态视图。长任务执行中不能简单复制正在写入的文件；Codex SQLite 必须采用安全备份或在无写入边界复制。三种 Runtime 的具体文件集应由 Adapter 实测决定，避免硬编码整个用户 Home。</p>
+</section>
+<section id="isolation"><h2>06 · 多租户隔离</h2>
+<pre class="diagram">MySQL
+  user_id → session_id → committed native state
+
+Worker (ephemeral)
+  /runtime/session-001/home/       # 独立可写 Runtime Home
+  /runtime/session-001/workspace/  # 独立本地工作副本
+  /runtime/session-002/home/       # 另一个 Session
+</pre>
+<ul>
+<li><strong>访问隔离：</strong>Session Manager 在所有读取、创建、恢复与写回路径执行 user_id ownership 检查；用户 ID 必须来自可信认证上下文。</li>
+<li><strong>执行隔离：</strong>不同用户运行在独立容器或具有等效安全边界的环境中。相同用户的不同 Session 也建议独立 Runtime 可写目录，避免共用 SQLite / Transcript 写入。</li>
+<li><strong>凭证隔离：</strong>Secret Store / 用户级授权与 Session Blob 分离，启动时按身份注入；不要把 OAuth token、API Key 等写入 MySQL Session 状态包。</li>
+<li><strong>状态隔离：</strong>以 session_id 对应一个单写者；机器复用不代表目录复用。所有 Cache 目录均可丢弃并从 MySQL 重建。</li>
+</ul>
+</section>
+<section id="consistency"><h2>07 · 异步持久化与一致性</h2>
+<div class="cards">
+<div class="card"><span class="kicker">V1</span><b>Write-behind</b><p>本地写入后标记 dirty，按会话轮次结束或定时触发 Flush；不承诺每个 Token / 工具事件强持久。</p></div>
+<div class="card"><span class="kicker">RECOVERY</span><b>Last committed</b><p>故障恢复只从 MySQL 已提交版本启动。未同步的最新一小段状态允许丢失。</p></div>
+<div class="card"><span class="kicker">FUTURE</span><b>Durability levels</b><p>再根据实际需求演进：Best Effort、Turn Durable、关键步骤同步提交。</p></div>
+</div>
+<h3>Flush 协议（最小正确性）</h3>
+<ol class="steps"><li><strong>生成一致的 Native Snapshot</strong>在 Session 写入安全边界读取文件和必要索引，计算 checksum；不阻塞其他 Session。</li><li><strong>提交到 MySQL</strong>使用短事务锁定目标 Session，检查 owner epoch 和期望版本。</li><li><strong>写入新状态并推进指针</strong>同一事务 INSERT 新的 session_states，UPDATE agent_sessions.committed_version。</li><li><strong>仅在事务成功后清除 Dirty</strong>失败则保留本地 dirty、重试或由故障恢复接受丢失窗口；过期 Writer 提交必须被拒绝。</li></ol>
+<p class="callout warn"><strong>重要限制：</strong>Lease / epoch 主要保护 MySQL 中的提交与所有权，不会自动阻止已失去 Lease 的旧进程向外部系统发起操作。需要先确保旧 Worker 停止或隔离；部署、训练提交等有副作用动作由独立 Execution 层核对。</p>
+</section>
+<section id="acceptance"><h2>08 · 最小验收实验</h2>
+<div class="table-scroll"><table><thead><tr><th>实验</th><th>操作</th><th>通过条件</th></tr></thead><tbody>
+<tr><td>跨机器恢复</td><td>Server A 各创建 Pi / Claude Code / Codex Session，正常 Flush 后关闭 A；Server B 清空本地 Cache，从 MySQL 恢复</td><td>三个 Runtime 都能 Native Resume；历史对话可追溯；后续交互正常</td></tr>
+<tr><td>故障丢失窗口</td><td>本地新增消息后、尚未 Flush 时杀掉 A</td><td>恢复到 MySQL 最新已提交版本；丢失窗口被明确记录，不误报为完整恢复</td></tr>
+<tr><td>用户隔离</td><td>用户 B 用用户 A 的 Session ID 发起读取、Resume、写回</td><td>全部拒绝，不能拿到 A 的状态包或凭证</td></tr>
+<tr><td>并发冲突</td><td>A 保留旧 Lease，B 接管并成功提交后，A 尝试回写</td><td>A 的旧 epoch 不能覆盖 B 的版本</td></tr>
+<tr><td>双 Session 并发</td><td>同用户并行运行两个 Codex / Claude Session，分别 Flush</td><td>各自恢复正确，无写入互扰或状态交叉</td></tr>
+</tbody></table></div>
+<h3>首版交付顺序</h3>
+<p><strong>① MySQL 状态模型与 Session Manager → ② Pi Adapter 端到端 → ③ Claude Code / Codex Adapter → ④ 用户隔离与跨机故障验收。</strong> 优先证明恢复正确，再优化增量写入和高级持久化策略。</p>
+<p class="status">目标结果：清除任何 Worker 的本地 Cache 后，已提交 Session 仍可在另一台 Server 继续。</p>
+<p class="foot">本页为方案设计，不代表已部署运行。非目标：原始进程迁移、进行中的工具动作重放、Workspace 自动持久化、Exactly-once 外部操作。</p>
+</section>
+</div></div>
+</main>
+</body>
+</html>
