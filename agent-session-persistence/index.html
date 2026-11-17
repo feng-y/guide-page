@@ -172,14 +172,14 @@ Worker B: restore from verified BOSS snapshot</pre>
 </section>
 <section id="acceptance"><h2>08 · 验收与实施顺序</h2>
 <div class="table-scroll"><table><thead><tr><th>实验</th><th>操作</th><th>通过标准</th></tr></thead><tbody>
-<tr><td>Pi 跨机恢复（首个必过）</td><td>Worker A 使用真实 Magpie Chat 多轮工具调用，提交 BOSS + MySQL；删除本地 HOME 后由 Worker B 恢复</td><td>原生 Session 可继续；历史、工具上下文、Harness 环境可用，无需 Worker A 本地文件</td></tr>
-<tr><td>Codex / Claude Code</td><td>分别做真实多轮 Session 跨机迁移与 Resume</td><td>各 Runtime 原生 Resume，未发生会话串线或上下文丢失</td></tr>
+<tr><td>Magpie Chat 首个 Runtime（首个必过）</td><td>选择已在 Magpie Chat 中可用的一个 Runtime（Pi / Codex / Claude Code），Worker A 多轮工具调用后提交 BOSS + MySQL；删除本地 HOME，再由 Worker B 恢复</td><td>原生 Session 可继续；历史、工具上下文、Harness 环境可用，无需 Worker A 本地文件</td></tr>
+<tr><td>其余 Runtime</td><td>为未覆盖的 Runtime 分别做多轮 Session 跨机迁移与 Resume</td><td>各 Runtime 原生 Resume，未发生会话串线或上下文丢失</td></tr>
 <tr><td>上传/数据库故障</td><td>注入 BOSS 上传失败、MySQL 事务失败与对象损坏</td><td>不会推进到无效版本；有明确未持久化状态；必要时回退最近有效版本</td></tr>
 <tr><td>并发与用户隔离</td><td>旧 Worker 持有过期 Lease 提交；其他用户尝试按 ID 恢复</td><td>过期写入和越权访问全部拒绝</td></tr>
 <tr><td>成本与可靠性</td><td>采样 Snapshot 大小（P50/P95/P99）、上传时延、BOSS 请求量和恢复耗时</td><td>能判断是否继续采用全量 Snapshot，或针对大 Session 再做增量优化</td></tr>
 </tbody></table></div>
 <h3>最短落地路线</h3>
-<p><strong>① 确认公司 BOSS Bucket / SDK / 权限 → ② 建 MySQL 两表 + BOSS SnapshotStore → ③ 先跑通 Pi + Magpie Chat 的真实 Checkpoint/Restore → ④ 补 Codex / Claude Code → ⑤ 做跨 Worker、故障和用户隔离测试。</strong></p>
+<p><strong>① 确认公司 BOSS Bucket / SDK / 权限 → ② 建 MySQL 两表 + BOSS SnapshotStore → ③ 先跑通 Magpie Chat 目前可用的一个 Runtime 的真实 Checkpoint/Restore → ④ 补其余 Runtime → ⑤ 做跨 Worker、故障和用户隔离测试。</strong></p>
 <p>依旧坚持产品主线：<strong>P0 是 Magpie Chat</strong>。Session Persistence 是它的恢复能力，不应演变成单独的存储平台项目。</p>
 <p class="status">验收终点：清空 Worker A 的全部本地 Session 后，仅凭 MySQL 已提交指针、BOSS Snapshot 和独立配置，Worker B 能继续同一个原生 Session。</p>
 <p class="foot">本页为设计方案，尚未验证 BOSS 的 S3 API 兼容性、具体 SDK、对象一致性语义或跨 Worker 的真实 Runtime Resume；实施前按内部文档与实测核对。</p>
