@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
-<title>Multi-tenant Agent Session Persistence · 架构方案</title>
-<meta name="description" content="Pi、Claude Code、Codex 在自有 Server 上的 MySQL 持久化、临时本地 Cache、跨机器恢复和用户隔离方案。">
+<title>Agent Session Persistence v0.2 · BOSS + MySQL</title>
+<meta name="description" content="基于已有 BOSS 和 MySQL 保存 Agent 原生 Session Checkpoint，支持 Pi、Claude Code、Codex 跨 Worker 恢复与用户隔离。">
 <style>
 :root{--bg:#f7f9fc;--paper:#fff;--ink:#142037;--muted:#506078;--line:#dfe5ee;--blue:#205ec6;--pale:#eaf1ff;--soft:#f2f5fa;--green:#16745a;--amber:#8a5916;--dark:#121b2d}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);background:var(--bg);font:15px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
@@ -25,132 +25,164 @@ ul{padding-left:23px}li{margin:5px 0}.foot{font-size:13px;color:var(--muted);mar
 <header><div class="top"><a class="brand" href="../">Guide Page / Architecture Notes</a><div class="navlinks"><a href="../harness-workspace/">Harness Workspace</a><a href="../ai-engineering/">AI Engineering</a><a href="https://github.com/feng-y/guide-page">Source Repo</a></div></div></header>
 <main class="wrap">
 <div class="hero">
-<div class="eyebrow">Architecture Proposal · v0.1 · 2026-11-16</div>
-<h1>Multi-tenant Agent Session Persistence</h1>
-<p class="lead"><strong>MySQL 是唯一的 Session 持久化事实源；Server 本地状态只是可重建的临时 Cache。</strong> 支持 Pi / Claude Code / Codex 的原生 Session，按用户隔离、异步落库、跨机器恢复。允许故障时丢失尚未同步的少量最近状态。</p>
-<div class="meta"><span class="tag">Self-hosted</span><span class="tag">MySQL SoT</span><span class="tag">Write-behind Cache</span><span class="tag">User Isolation</span><span class="tag">Native Resume</span><span class="tag">Design Draft · 未实施</span></div>
+<div class="eyebrow">Architecture Proposal · v0.2 · 2026-11-17</div>
+<h1>Agent Session Persistence<br>BOSS + MySQL</h1>
+<p class="lead"><strong>MySQL 管理 Session 控制状态与已提交的 Checkpoint 指针；BOSS 保存不可变的原生 Session 快照；Worker 本地只保留可丢弃的执行缓存。</strong> 目标是使 Pi / Claude Code / Codex 在任意新的 Worker 上恢复，首期按轮次完成时生成 Checkpoint，不要求恢复中途运行的工具进程。</p>
+<div class="meta"><span class="tag">BOSS Native Snapshots</span><span class="tag">MySQL Control State</span><span class="tag">Immutable Checkpoint</span><span class="tag">Single Writer</span><span class="tag">Native Resume</span><span class="tag">Design v0.2 · 未实施</span></div>
 </div>
 <div class="layout">
-<nav class="toc" aria-label="文档目录"><strong>目录</strong><a href="#scope">01 目标与边界</a><a href="#arch">02 架构</a><a href="#flow">03 数据流</a><a href="#schema">04 MySQL 模型</a><a href="#adapters">05 Runtime 适配</a><a href="#isolation">06 用户隔离</a><a href="#consistency">07 一致性与丢失</a><a href="#acceptance">08 验收</a></nav>
+<nav class="toc" aria-label="文档目录"><strong>目录</strong><a href="#scope">01 目标与边界</a><a href="#arch">02 架构</a><a href="#flow">03 数据流</a><a href="#schema">04 存储模型</a><a href="#adapters">05 Runtime 适配</a><a href="#isolation">06 用户隔离</a><a href="#consistency">07 写入与故障</a><a href="#acceptance">08 验收与落地</a></nav>
 <div>
 <section id="scope"><h2>01 · 目标与非目标</h2>
 <div class="cards">
-<div class="card"><span class="kicker">MUST</span><b>Session 跨机器恢复</b><p>任意新 Worker 仅凭 MySQL 中的已提交 Session 状态和用户授权即可重建本地运行缓存。</p></div>
-<div class="card"><span class="kicker">MUST</span><b>多用户隔离</b><p>用户不能读取或恢复别人的 Session、Runtime Home、工作空间或身份凭证。</p></div>
-<div class="card"><span class="kicker">TRADE-OFF</span><b>允许少量近期状态丢失</b><p>先采用异步写回；同步频率与持久化等级留作后续演进。</p></div>
+<div class="card"><span class="kicker">MUST</span><b>跨 Worker 原生恢复</b><p>Worker B 不依赖 Worker A 的本地磁盘，从 MySQL 找到已提交版本，下载 BOSS 文件并调用 Native Resume。</p></div>
+<div class="card"><span class="kicker">MUST</span><b>会话归属与单写者</b><p>所有读写由服务端鉴权；每 Session 同一时刻只有一个被授权的 Writer 提交 Checkpoint。</p></div>
+<div class="card"><span class="kicker">MUST</span><b>明确持久化边界</b><p>一轮结束时落一次完整快照；成功提交后才标记为 durable。进行中途崩溃只恢复到最近成功版本。</p></div>
 </div>
-<p class="callout"><strong>范围：</strong>本页解决 Session Continuity（会话状态持续性），不承诺 Execution Continuity（中断中的工具调用自动继续）。代码 Workspace、Secrets、训练/部署副作用属于独立的持久化与恢复问题。</p>
-</section>
+<p class="callout"><strong>范围：</strong>只负责 Session Continuity，不迁移运行中的进程、外部训练任务或已执行副作用。代码 Workspace、Magpie 仓库、模型服务凭证和 Taskbook 分别由其已有机制管理，恢复时重新挂载/加载。</p>
+<p>不引入时序数据库。Session 原生状态是按身份和版本恢复的<strong>文件快照</strong>，不是按时间窗口聚合的指标数据。</p></section>
 <section id="arch"><h2>02 · 最小架构</h2>
-<pre class="diagram">                  Web Chat / SuperAgent
-                  user auth · session routing
-                              |
-                      Session Manager
-           ownership · version · active writer
-                              |
-                 Runtime Adapter interface
-                      /       |       \
-                     Pi    Claude     Codex
-                              |
-              +---------------+---------------+
-              |                               |
-    Worker A / B / N                        MySQL
-  isolated Runtime process           authoritative Session DB
-  temporary native files   &lt;------&gt;   metadata + native state
-  dirty tracking &amp; flush              committed version
-  (rebuildable cache)                  user ownership
-</pre>
-<p>Worker 执行期间，Runtime 仍使用自己熟悉的本地文件；Session Manager 在 Cache Miss 时从 MySQL 装载，在更新后异步 Flush。其他机器无需共享文件系统、远程 Volume 或 MinIO。</p>
-<div class="callout warn"><strong>写入所有权：</strong>同一个 Session 只允许一个有效 Writer。MySQL 负责判断谁有资格提交更新；旧 Worker 不能用过期版本覆盖新机器的提交。</div>
+<pre class="diagram">              Chat / @superagent
+                 Session Manager
+            owner · version · lease
+                     |
+          Runtime Adapter / Worker
+         Pi · Claude Code · Codex
+           |                 |
+    Ephemeral HOME       restore / flush
+     (runtime native)         |
+           +----------+------+
+                      |
+           +----------+----------+
+           |                     |
+         MySQL                  BOSS
+  user / session metadata   immutable .tar.zst
+  lease / epoch             native files + manifest
+  committed_version         versioned checkpoints
+  object_key + sha256       retained last N versions</pre>
+<p>MySQL 负责<strong>当前哪个版本有效、谁可以写</strong>；BOSS 保存这个版本对应的真实文件。BOSS 不能替代 MySQL 的事务与权限判断，MySQL 也不再保存完整 <code>LONGBLOB</code>。</p>
+<p>使用公司现有的 BOSS 服务和 SDK。<strong>不假设 BOSS 兼容 S3 API</strong>：先确认内部上传、下载、读取对象元数据及访问权限接口；平台只需要一个很薄的存取适配器。</p>
+<pre>interface SnapshotStore {
+  put(key: string, bytes: Uint8Array): Promise&lt;void&gt;
+  get(key: string): Promise&lt;Uint8Array&gt;
+  head(key: string): Promise&lt;{ size: number }&gt;
+  delete(key: string): Promise&lt;void&gt;  // 仅清理任务调用
+}</pre>
+<div class="callout warn"><strong>现阶段不做：</strong>MinIO / 独立 S3、Kafka、Redis 缓存、增量快照引擎、通用 Blob 数据库。先复用 BOSS + MySQL，按真实快照大小决定是否需要增量化。</div>
 </section>
 <section id="flow"><h2>03 · 生命周期与数据流</h2>
 <h3>新建 Session</h3>
-<ol class="steps"><li><strong>服务端鉴权并生成 Session ID</strong>MySQL 写入 user_id、runtime、初始状态和 owner epoch。</li><li><strong>创建隔离的本地 Cache</strong>为这个 Session 准备固定的 HOME、Runtime 数据目录和 Workspace 入口。</li><li><strong>调用原生 Runtime</strong>通过 Adapter 创建 Pi / Claude Code / Codex Session，持久化原生 Session ID。</li><li><strong>异步同步到 MySQL</strong>Runtime 文件发生变化时标记 dirty，在安全写入点生成状态包并提交。</li></ol>
-<h3>恢复到另一台 Server</h3>
-<ol class="steps"><li><strong>验证请求用户的 Session 所有权</strong>由服务端鉴权结果绑定 user_id，而非信任请求中的 user_id。</li><li><strong>取得当前写入权</strong>通过 MySQL Lease / owner epoch 阻止同一 Session 在两台 Worker 并发执行。</li><li><strong>下载最后已提交的原生状态</strong>解压到新 Worker 的本地临时目录，保留容器内部约定的固定绝对路径。</li><li><strong>恢复 Runtime 环境与 Native Session</strong>注入用户配置和授权，调用 Pi / Claude Code / Codex 原生 Resume。</li><li><strong>继续交互并回写 MySQL</strong>新的执行进度从新 Worker 的 Cache 异步同步，Session ID 不变。</li></ol>
+<ol class="steps">
+<li><strong>鉴权并登记 Session</strong>MySQL 保存 tenant_id / user_id、runtime、workspace_ref、harness_ref、native_session_id（创建后填写）和 committed_version=0。</li>
+<li><strong>获得 Writer Lease</strong>MySQL 颁发 owner_epoch 和 lease_owner；一个 Session 仅由一个有效 Worker 修改。</li>
+<li><strong>正常运行原生 Agent</strong>Worker 准备独立的临时 HOME 与 Workspace，原生 Runtime 负责自己的 JSONL / SQLite 等文件。</li>
+<li><strong>轮次完成后生成 Checkpoint</strong>Adapter 在一致性边界获取需要的原生文件，生成 manifest + 压缩包，上传 BOSS，校验可读后用 MySQL 事务提交新版本。</li></ol>
+<h3>Worker A 故障后在 Worker B 恢复</h3>
+<ol class="steps">
+<li><strong>验证用户与 Session 所有权</strong>后端按认证上下文查 MySQL，不信任客户端提交的 user_id。</li>
+<li><strong>接管 Lease</strong>确认旧进程已停止、隔离或失去执行资格，MySQL 增加 owner_epoch；旧 Writer 不能再提交新版本。</li>
+<li><strong>读取指针并下载</strong>用 committed_version 查 session_checkpoints 的 object_key，从 BOSS 下载 Snapshot 并校验 SHA-256；校验失败尝试上一有效版本。</li>
+<li><strong>在新 Worker 还原原生环境</strong>安全解压到指定 Cache 目录，准备对应的 Workspace、Harness 版本与用户权限，再调用 Runtime 原生 Resume。</li>
+<li><strong>后续执行继续产生新版本</strong>不改变平台 Session ID；恢复成功后下一轮执行仍通过 BOSS + MySQL 提交。</li></ol>
+<p class="callout"><strong>恢复承诺：</strong>只能恢复最后成功提交的原生 Session 状态。不保证恢复尚未完成的工具调用，也不能对外部系统操作提供 exactly-once 语义。</p>
 </section>
-<section id="schema"><h2>04 · MySQL 持久化模型</h2>
-<p>第一版用两张核心表即可表达会话归属和不可变状态版本。以下 SQL 为<strong>概念性建模</strong>，生产实现需再确定索引、清理策略、事务大小和恢复窗口。</p>
-<div class="code-label">Schema sketch</div>
+<section id="schema"><h2>04 · MySQL 索引与 BOSS 对象</h2>
+<p>第一版仍然只需要两张 Session 专用表。<code>Task</code>、<code>Run</code>、Web 展示事件沿用工作台已有数据模型，不与 Runtime 原生文件混存。</p>
+<div class="code-label">MySQL · 概念性 Schema（字段可随现有库约束调整）</div>
 <pre>CREATE TABLE agent_sessions (
   id                VARCHAR(64) PRIMARY KEY,
+  tenant_id         VARCHAR(64) NOT NULL,
   user_id           VARCHAR(64) NOT NULL,
   runtime           VARCHAR(32) NOT NULL,
   native_session_id VARCHAR(255),
-  committed_version BIGINT NOT NULL DEFAULT 0,
-  owner_epoch       BIGINT NOT NULL DEFAULT 0,
+  workspace_ref     VARCHAR(255),
+  harness_ref       VARCHAR(255),
+  committed_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  owner_epoch       BIGINT UNSIGNED NOT NULL DEFAULT 0,
   lease_owner       VARCHAR(128),
   lease_expires_at  DATETIME(6),
   status            VARCHAR(32) NOT NULL,
   updated_at        DATETIME(6) NOT NULL,
-  KEY idx_user (user_id, updated_at)
+  KEY idx_owner (tenant_id, user_id, updated_at)
 );
 
-CREATE TABLE session_states (
+CREATE TABLE session_checkpoints (
   session_id    VARCHAR(64) NOT NULL,
-  version       BIGINT NOT NULL,
-  owner_epoch   BIGINT NOT NULL,
-  state_blob    LONGBLOB NOT NULL,
-  checksum      CHAR(64) NOT NULL,
+  version       BIGINT UNSIGNED NOT NULL,
+  owner_epoch   BIGINT UNSIGNED NOT NULL,
+  object_key    VARCHAR(512) NOT NULL,
+  sha256        CHAR(64) NOT NULL,
+  size_bytes    BIGINT UNSIGNED NOT NULL,
   created_at    DATETIME(6) NOT NULL,
   PRIMARY KEY (session_id, version)
 );</pre>
-<p><code>state_blob</code> 是包含原生文件及 manifest 的压缩状态包，而不是统一消息格式；可以含多个文件及子目录。<code>committed_version</code> 只指向<strong>已经完整写入且通过校验</strong>的版本，必须在一个 MySQL 事务中提交。</p>
-<p>大状态包会增加 MySQL 读写、复制与备份成本；第一版需测量典型、P99 Session 大小与写入量，并检查 <code>max_allowed_packet</code> 等限制。增量状态、保留版本数及分块存储属于后续优化。</p>
+<p><code>agent_sessions.committed_version</code> 与 <code>session_checkpoints</code> 新行在同一 MySQL 事务中提交。该版本对应的 BOSS 对象必须已经完整上传并验证可读。对象 Key 不允许覆盖写。</p>
+<div class="code-label">BOSS · 逻辑路径示例（私有 Bucket）</div>
+<pre>harness/sessions/{tenant-id}/{session-id}/
+  checkpoints/
+    v000001-{opaque-id}.tar.zst
+    v000002-{opaque-id}.tar.zst
+    v000003-{opaque-id}.tar.zst</pre>
+<p>一个 Snapshot 包只包含 Adapter 确认<strong>恢复确实需要</strong>的原生文件，以及 <code>manifest.json</code>（schemaVersion、runtime、runtimeVersion、nativeSessionId、harnessRef、相对文件路径、校验摘要）。不要直接打包整个 <code>HOME</code>。</p>
+<div class="callout warn"><strong>敏感数据边界：</strong>Session Transcript 可能包含用户输入、内部代码或工具返回的敏感内容；即使剔除 credential 文件，也应将整包当作敏感数据。BOSS Bucket 必须私有，使用受控服务账号、必要的加密与访问审计；Runtime 凭证重新授权/注入，不能靠恢复包分发。</div>
 </section>
-<section id="adapters"><h2>05 · 三种 Runtime 的 Adapter</h2>
-<div class="table-scroll"><table><thead><tr><th>Runtime</th><th>需要保存的原生会话状态</th><th>恢复方式</th><th>注意事项</th></tr></thead><tbody>
-<tr><td><b>Pi</b></td><td>Session JSONL / 会话树及元信息</td><td>从还原的 Session 路径打开</td><td>维护 Session 目录和固定工作路径；用户 Skills / Secrets 不作为 Session Blob 一起保存</td></tr>
-<tr><td><b>Claude Code</b></td><td>项目下 Transcript / Session 元数据和 Resume 所需配置</td><td>使用原生 <code>--resume</code></td><td>项目目录编码依赖 CWD；仅同步 Transcript 可能不够，需用真实 Session 测试验证状态包边界</td></tr>
-<tr><td><b>Codex</b></td><td>Session JSONL、Resume 所需的状态索引及元数据</td><td>使用原生 <code>resume</code></td><td>可能涉及 SQLite、路径和索引；需一致性复制，不应直接读取正在写入的数据库文件</td></tr>
+<section id="adapters"><h2>05 · Runtime Adapter：只负责原生 Session</h2>
+<div class="table-scroll"><table><thead><tr><th>Runtime</th><th>Snapshot 内容</th><th>恢复方式</th><th>需要实测的边界</th></tr></thead><tbody>
+<tr><td><b>Pi</b></td><td>JSONL Session、分支与会话元数据</td><td>原生打开指定 Session</td><td>路径、分支、文件清单与 Skills/工作目录恢复</td></tr>
+<tr><td><b>Claude Code</b></td><td>Transcript 和恢复所需原生元数据</td><td>Runtime 原生 Session Resume</td><td>CWD 与项目路径绑定、原生文件布局、版本兼容性</td></tr>
+<tr><td><b>Codex</b></td><td>Thread Rollout 及必要索引/元数据</td><td>App Server <code>thread/resume</code></td><td>新版本可能有 SQLite / 分页事件；必须用原生机制确认一致性</td></tr>
 </tbody></table></div>
-<h3>最小 Adapter 合同</h3>
-<pre>interface SessionAdapter {
-  create(localHome, workspace): NativeSession
-  resume(localHome, workspace, nativeSessionId): Runtime
-  checkpoint(localHome): ConsistentNativeState
-  restore(localHome, nativeState): void
+<pre>interface NativeSessionAdapter {
+  start(context): Promise&lt;NativeSession&gt;
+  checkpoint(context): Promise&lt;ConsistentSnapshot&gt;
+  restore(context, snapshot): Promise&lt;NativeSession&gt;
+  resume(context): Promise&lt;void&gt;
 }</pre>
-<p><strong>Checkpoint 实现边界：</strong>每轮结束 / Runtime 空闲时生成一致的本地状态视图。长任务执行中不能简单复制正在写入的文件；Codex SQLite 必须采用安全备份或在无写入边界复制。三种 Runtime 的具体文件集应由 Adapter 实测决定，避免硬编码整个用户 Home。</p>
+<p><strong>一致性边界：</strong>完成一个 Agent Turn、工具执行静止后才生成完整快照。若 Runtime 使用 SQLite，需要安全备份 API 或等效冻结机制；不能直接复制仍在写入的数据库。不同 Runtime 的原生文件集必须单独验证，不硬编码公共路径。</p>
+<p>Codex 的 <a href="https://learn.chatgpt.com/docs/app-server" target="_blank" rel="noopener noreferrer">App Server 文档</a>明确提供持久 Thread 和 <code>thread/resume</code>；注意这不等于原生 Session 文件可以直接跨机器无损搬运，仍需验证 Adapter 提取与恢复的文件集合。</p>
 </section>
-<section id="isolation"><h2>06 · 多租户隔离</h2>
-<pre class="diagram">MySQL
-  user_id → session_id → committed native state
-
-Worker (ephemeral)
-  /runtime/session-001/home/       # 独立可写 Runtime Home
-  /runtime/session-001/workspace/  # 独立本地工作副本
-  /runtime/session-002/home/       # 另一个 Session
-</pre>
+<section id="isolation"><h2>06 · 用户隔离与执行权限</h2>
+<pre class="diagram">MySQL: authenticated (tenant_id, user_id) → session_id
+BOSS : private bucket; object keys only from DB references
+Worker A: isolated HOME/session-{id} [temporary]
+Worker B: restore from verified BOSS snapshot</pre>
 <ul>
-<li><strong>访问隔离：</strong>Session Manager 在所有读取、创建、恢复与写回路径执行 user_id ownership 检查；用户 ID 必须来自可信认证上下文。</li>
-<li><strong>执行隔离：</strong>不同用户运行在独立容器或具有等效安全边界的环境中。相同用户的不同 Session 也建议独立 Runtime 可写目录，避免共用 SQLite / Transcript 写入。</li>
-<li><strong>凭证隔离：</strong>Secret Store / 用户级授权与 Session Blob 分离，启动时按身份注入；不要把 OAuth token、API Key 等写入 MySQL Session 状态包。</li>
-<li><strong>状态隔离：</strong>以 session_id 对应一个单写者；机器复用不代表目录复用。所有 Cache 目录均可丢弃并从 MySQL 重建。</li>
-</ul>
-</section>
-<section id="consistency"><h2>07 · 异步持久化与一致性</h2>
-<div class="cards">
-<div class="card"><span class="kicker">V1</span><b>Write-behind</b><p>本地写入后标记 dirty，按会话轮次结束或定时触发 Flush；不承诺每个 Token / 工具事件强持久。</p></div>
-<div class="card"><span class="kicker">RECOVERY</span><b>Last committed</b><p>故障恢复只从 MySQL 已提交版本启动。未同步的最新一小段状态允许丢失。</p></div>
-<div class="card"><span class="kicker">FUTURE</span><b>Durability levels</b><p>再根据实际需求演进：Best Effort、Turn Durable、关键步骤同步提交。</p></div>
-</div>
-<h3>Flush 协议（最小正确性）</h3>
-<ol class="steps"><li><strong>生成一致的 Native Snapshot</strong>在 Session 写入安全边界读取文件和必要索引，计算 checksum；不阻塞其他 Session。</li><li><strong>提交到 MySQL</strong>使用短事务锁定目标 Session，检查 owner epoch 和期望版本。</li><li><strong>写入新状态并推进指针</strong>同一事务 INSERT 新的 session_states，UPDATE agent_sessions.committed_version。</li><li><strong>仅在事务成功后清除 Dirty</strong>失败则保留本地 dirty、重试或由故障恢复接受丢失窗口；过期 Writer 提交必须被拒绝。</li></ol>
-<p class="callout warn"><strong>重要限制：</strong>Lease / epoch 主要保护 MySQL 中的提交与所有权，不会自动阻止已失去 Lease 的旧进程向外部系统发起操作。需要先确保旧 Worker 停止或隔离；部署、训练提交等有副作用动作由独立 Execution 层核对。</p>
-</section>
-<section id="acceptance"><h2>08 · 最小验收实验</h2>
-<div class="table-scroll"><table><thead><tr><th>实验</th><th>操作</th><th>通过条件</th></tr></thead><tbody>
-<tr><td>跨机器恢复</td><td>Server A 各创建 Pi / Claude Code / Codex Session，正常 Flush 后关闭 A；Server B 清空本地 Cache，从 MySQL 恢复</td><td>三个 Runtime 都能 Native Resume；历史对话可追溯；后续交互正常</td></tr>
-<tr><td>故障丢失窗口</td><td>本地新增消息后、尚未 Flush 时杀掉 A</td><td>恢复到 MySQL 最新已提交版本；丢失窗口被明确记录，不误报为完整恢复</td></tr>
-<tr><td>用户隔离</td><td>用户 B 用用户 A 的 Session ID 发起读取、Resume、写回</td><td>全部拒绝，不能拿到 A 的状态包或凭证</td></tr>
-<tr><td>并发冲突</td><td>A 保留旧 Lease，B 接管并成功提交后，A 尝试回写</td><td>A 的旧 epoch 不能覆盖 B 的版本</td></tr>
-<tr><td>双 Session 并发</td><td>同用户并行运行两个 Codex / Claude Session，分别 Flush</td><td>各自恢复正确，无写入互扰或状态交叉</td></tr>
+<li><strong>平台隔离：</strong>读取、续聊、Checkpoint 和删除均经后端按真实 tenant_id / user_id 验证；不直接向客户端提供可绕过权限的 BOSS 地址。</li>
+<li><strong>执行隔离：</strong>同一个 Linux UID 启动多个用户的任意 Shell 命令并不能实现用户隔离。首期若仅内部单用户可简化；开放多用户执行前至少实施独立 UID / Workspace 与可信 Runner Broker，或等效更强的隔离。</li>
+<li><strong>凭证隔离：</strong>Token / Key 不属于 Session Snapshot；用户认证与工具授权来自专门的用户配置与 Secret 管理，启动时注入。对历史 Transcript 仍按敏感内容处理。</li>
+<li><strong>归档清理：</strong>优先保留最近 3 个成功提交的 Checkpoint，过期对象以 DB 指针和保留策略为准异步删除，不能删除活跃版本。</li>
+</ul></section>
+<section id="consistency"><h2>07 · Checkpoint 提交协议与故障处理</h2>
+<p>建议首期采用<strong>每个完成的 Turn 一个持久版本</strong>：允许 Web 流式显示执行过程，但只有 BOSS 上传 + MySQL 提交成功，才将此轮状态标为 durable。持久化失败时应显示待同步状态，不能宣称已经可跨机器恢复。</p>
+<h3>Flush / Commit：固定 5 步</h3>
+<ol class="steps">
+<li><strong>进入安全边界并生成 Snapshot</strong>Adapter 获取一致的原生文件集合，建立 Manifest，压缩并计算 SHA-256；记录提交前的 base_version 和 owner_epoch。</li>
+<li><strong>上传 BOSS 不可变 Object</strong>使用新对象 Key，上传后验证对象可读且文件摘要正确；不能把多段上传的 ETag 直接当作 SHA-256。</li>
+<li><strong>MySQL 短事务验证所有权</strong>锁定 Session，检查用户、lease_owner、owner_epoch、租约有效期，以及 committed_version==base_version。</li>
+<li><strong>同事务提交 Checkpoint + 指针</strong>INSERT <code>session_checkpoints(version=base+1)</code>，UPDATE <code>agent_sessions.committed_version</code>，然后 COMMIT；旧 Worker 提交不满足 epoch 条件必须拒绝。</li>
+<li><strong>标记 durable 并允许继续</strong>提交成功才清理本地 dirty；Worker 可以继续下一轮，失败保留上次指针和本地待上传状态。</li></ol>
+<div class="table-scroll"><table><thead><tr><th>故障点</th><th>系统表现与恢复</th></tr></thead><tbody>
+<tr><td>BOSS 上传失败</td><td>MySQL 不变；本轮标记未持久化，重试上传。</td></tr>
+<tr><td>BOSS 成功但 MySQL 失败</td><td>产生孤儿对象；旧 committed_version 仍有效，按保留期清理孤儿对象。</td></tr>
+<tr><td>MySQL 成功但 Worker 崩溃</td><td>新 Worker 可按新指针下载 BOSS 并恢复，无需旧 Worker 本地文件。</td></tr>
+<tr><td>最新对象损坏或无法读取</td><td>检测 checksum / 下载失败；尝试上一个有效 Checkpoint，并明确报告回退版本。</td></tr>
+<tr><td>旧 Worker 在 Lease 转移后提交</td><td>MySQL owner_epoch / base_version 校验失败；无法覆盖新版本。</td></tr>
 </tbody></table></div>
-<h3>首版交付顺序</h3>
-<p><strong>① MySQL 状态模型与 Session Manager → ② Pi Adapter 端到端 → ③ Claude Code / Codex Adapter → ④ 用户隔离与跨机故障验收。</strong> 优先证明恢复正确，再优化增量写入和高级持久化策略。</p>
-<p class="status">目标结果：清除任何 Worker 的本地 Cache 后，已提交 Session 仍可在另一台 Server 继续。</p>
-<p class="foot">本页为方案设计，不代表已部署运行。非目标：原始进程迁移、进行中的工具动作重放、Workspace 自动持久化、Exactly-once 外部操作。</p>
+<p class="callout warn"><strong>重要限制：</strong>Lease 只能阻止失效 Worker 提交 Session 状态，不能天然阻止它继续执行外部命令；跨机器接管前需要终止或隔离原进程。训练提交、部署等副作用另外使用权限关口和幂等键，不由 Session Persistence 承诺 exactly-once。</p>
+</section>
+<section id="acceptance"><h2>08 · 验收与实施顺序</h2>
+<div class="table-scroll"><table><thead><tr><th>实验</th><th>操作</th><th>通过标准</th></tr></thead><tbody>
+<tr><td>Pi 跨机恢复（首个必过）</td><td>Worker A 使用真实 Magpie Chat 多轮工具调用，提交 BOSS + MySQL；删除本地 HOME 后由 Worker B 恢复</td><td>原生 Session 可继续；历史、工具上下文、Harness 环境可用，无需 Worker A 本地文件</td></tr>
+<tr><td>Codex / Claude Code</td><td>分别做真实多轮 Session 跨机迁移与 Resume</td><td>各 Runtime 原生 Resume，未发生会话串线或上下文丢失</td></tr>
+<tr><td>上传/数据库故障</td><td>注入 BOSS 上传失败、MySQL 事务失败与对象损坏</td><td>不会推进到无效版本；有明确未持久化状态；必要时回退最近有效版本</td></tr>
+<tr><td>并发与用户隔离</td><td>旧 Worker 持有过期 Lease 提交；其他用户尝试按 ID 恢复</td><td>过期写入和越权访问全部拒绝</td></tr>
+<tr><td>成本与可靠性</td><td>采样 Snapshot 大小（P50/P95/P99）、上传时延、BOSS 请求量和恢复耗时</td><td>能判断是否继续采用全量 Snapshot，或针对大 Session 再做增量优化</td></tr>
+</tbody></table></div>
+<h3>最短落地路线</h3>
+<p><strong>① 确认公司 BOSS Bucket / SDK / 权限 → ② 建 MySQL 两表 + BOSS SnapshotStore → ③ 先跑通 Pi + Magpie Chat 的真实 Checkpoint/Restore → ④ 补 Codex / Claude Code → ⑤ 做跨 Worker、故障和用户隔离测试。</strong></p>
+<p>依旧坚持产品主线：<strong>P0 是 Magpie Chat</strong>。Session Persistence 是它的恢复能力，不应演变成单独的存储平台项目。</p>
+<p class="status">验收终点：清空 Worker A 的全部本地 Session 后，仅凭 MySQL 已提交指针、BOSS Snapshot 和独立配置，Worker B 能继续同一个原生 Session。</p>
+<p class="foot">本页为设计方案，尚未验证 BOSS 的 S3 API 兼容性、具体 SDK、对象一致性语义或跨 Worker 的真实 Runtime Resume；实施前按内部文档与实测核对。</p>
 </section>
 </div></div>
 </main>
