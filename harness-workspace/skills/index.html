@@ -56,7 +56,7 @@ footer{font-size:12px;border-top:1px solid var(--line);margin-top:40px;padding-t
 <div class="grid"><div class="card"><span class="tag">ADMIN</span><h3>系统 Skills</h3><p>列出所有系统 Skill，包含来自镜像的默认 Skill。可添加、更新、停用、删除；删除镜像默认 Skill 后，后续部署不能自动复活它。</p></div>
 <div class="card"><span class="tag">USER</span><h3>我的 Skills</h3><p>仅显示自己的 Skill。可以添加、更新、停用、删除；不能更改系统 Skill。与系统 Skill 同名时拒绝安装，避免隐式覆盖。</p></div></div>
 <p>新版本只影响新 Session；已有 Session 默认保持之前装载的内容。需要让旧 Session 使用新 Skill 时，由用户明确刷新并在下一轮安全边界应用，而不是无提示热更新。</p>
-<p><strong>镜像升级：</strong>已有环境不重复初始化 Skill；新增镜像默认 Skill 由管理员明确选择导入。管理员配置是权威状态，镜像不能自动覆盖。仅当首次初始化系统清单为空时才导入镜像默认值。</p>
+<p><strong>镜像升级：</strong>已有环境不重复初始化 Skill；新增镜像默认 Skill 由管理员明确选择导入。管理员配置是权威状态，镜像不能自动覆盖。仅在明确的一次性初始化标记尚未设置时导入镜像默认值，初始化成功后持久记录完成状态；不能靠“系统 Skill 列表为空”判断，否则管理员删除全部 Skill 后会被意外重新安装。</p>
 </section>
 <section id="storage"><h2>四、存储：复用 BOSS + MySQL</h2>
 <table><thead><tr><th>位置</th><th>保存内容</th></tr></thead><tbody>
