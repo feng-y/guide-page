@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Rook Skill 管理：系统与个人两级，镜像初始化、管理员维护、用户隔离、会话版本固定。">
+<title>Rook · Skill 管理方案 v0.2</title>
+<style>
+:root{--bg:#f7f9fa;--paper:#fff;--ink:#172c36;--muted:#5f727e;--line:#dce5e9;--accent:#245e78;--pale:#edf4f7;--green:#276e50}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.75 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}code{font:13px ui-monospace,Menlo,Consolas,monospace;background:#eef2f5;border-radius:3px;padding:2px 4px}pre{background:#142b37;color:#e8f1f6;padding:17px;border-radius:10px;overflow:auto;font:12.5px/1.8 ui-monospace,Menlo,Consolas,monospace}
+h1{font-size:clamp(28px,4vw,43px);letter-spacing:-.035em;line-height:1.22;margin:10px 0 16px}h2{font-size:23px;letter-spacing:-.025em;margin:0 0 12px}h3{font-size:16px;margin:0 0 8px}p{margin:8px 0 13px}.muted{color:var(--muted)}.tiny{font-size:12px}
+header{background:white;border-bottom:1px solid var(--line)}.nav{max-width:1120px;margin:auto;padding:12px 25px;display:flex;justify-content:space-between;gap:12px;align-items:center}.brand{font-size:14px;font-weight:800}.navlinks{display:flex;gap:16px;font-size:13px;flex-wrap:wrap}
+main{max-width:1120px;margin:auto;padding:28px 25px 70px}
+.hero{background:#162f3b;border-radius:16px;padding:36px 38px;color:white}.eyebrow{font-size:12px;color:#bcd1dc;letter-spacing:.08em;font-weight:700}.hero p{font-size:17px;color:#d6e3e8;max-width:880px}
+.pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:19px}.pill{background:#294653;border:1px solid #40606f;font-size:12px;border-radius:30px;padding:4px 10px}
+section{margin-top:32px;scroll-margin-top:20px}.lead{font-size:16px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.card{border:1px solid var(--line);background:var(--paper);border-radius:12px;padding:20px}.card p{color:var(--muted);font-size:13px;margin:3px 0}.tag{font-size:11px;letter-spacing:.08em;color:var(--accent);font-weight:800}
+.callout{padding:15px 18px;border-left:4px solid var(--accent);border-radius:0 9px 9px 0;background:var(--pale)}
+table{width:100%;border-collapse:collapse;background:white;font-size:13.5px;border:1px solid var(--line)}th,td{text-align:left;padding:10px 13px;border-bottom:1px solid var(--line);vertical-align:top}th{background:#edf3f6}tr:last-child td{border-bottom:0}
+.flow{background:white;border:1px solid var(--line);border-radius:12px;padding:21px}.node{border:1px solid #d5e1e6;background:#f3f7f9;border-radius:9px;padding:13px;text-align:center}.node strong{display:block}.node small{color:var(--muted)}.cols{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.arrow{text-align:center;color:#7899aa;font-size:24px;line-height:30px}
+.step{display:flex;gap:14px;margin:17px 0}.stepnum{min-width:40px;height:39px;border-radius:9px;background:#e6f0f4;color:var(--accent);display:grid;place-items:center;font-weight:800}.step p{font-size:13px;color:var(--muted);margin:3px 0}
+details{background:#fff;border:1px solid var(--line);border-radius:9px;padding:11px 16px}summary{cursor:pointer;font-weight:700}
+footer{font-size:12px;border-top:1px solid var(--line);margin-top:40px;padding-top:20px;color:var(--muted)}
+@media(max-width:710px){.nav{display:block;padding:11px 15px}.navlinks{margin-top:5px;gap:10px}main{padding:18px 14px 50px}.hero{padding:27px 23px}.hero p{font-size:15px}.grid,.cols{grid-template-columns:1fr}th,td{padding:9px 8px}}
+</style>
+</head>
+<body>
+<header><nav class="nav" aria-label="站点导航"><div class="brand">Rook / Design</div><div class="navlinks"><a href="../">Harness 总方案</a><a href="#decision">设计决策</a><a href="#flow">装载流程</a><a href="#implementation">实施顺序</a><a href="#references">依据</a></div></nav></header>
+<main>
+<div class="hero"><div class="eyebrow">ROOK · SKILL MANAGEMENT · v0.2 · 2026-11-17</div>
+<h1>Skill 管理：系统 + 个人，两级足够</h1>
+<p>镜像提供初始 Skill，管理员全权维护系统 Skill；用户管理个人 Skill，且只能在自己的运行环境里使用。Rook 负责确定装载清单，不重新实现 Skill 协议或 Agent Loop。</p>
+<div class="pills"><span class="pill">2 个范围</span><span class="pill">管理员可升级/删除镜像 Skill</span><span class="pill">用户私有隔离</span><span class="pill">原生 Runtime 加载</span><span class="pill">Magpie Chat 优先</span></div>
+</div>
+<section id="decision"><h2>一、合理性评估与必要修正</h2>
+<p class="lead"><strong>两级管理方向正确。</strong> 原方案不需要第三层 Built-in，也不需要 Release Registry。但如果原样实现，镜像扫描和用户执行隔离会出现实际问题，下面三处需要明确。</p>
+<table><thead><tr><th style="width:25%">事项</th><th>结论</th><th>具体规则</th></tr></thead><tbody>
+<tr><td>系统 / 个人两级</td><td><strong>保留</strong></td><td>系统 Skill 只由管理员管理（包含镜像内置与管理员新增）；用户只能管理自己的 Skill。</td></tr>
+<tr><td>镜像内置 Skill</td><td><strong>修正</strong></td><td>镜像 Skill 只是初始化来源，不直接暴露给 Runtime 自动扫描。首次初始化后，以持久化的系统清单为准；管理员停用/删除不因重启或换镜像而失效。</td></tr>
+<tr><td>修改与已有 Session</td><td><strong>修正</strong></td><td>每次保存 Skill 内容生成不可变文件标识；Session 记住装载时的内容标识。正在执行不热切换；旧 Session 恢复仍可使用原内容。</td></tr>
+<tr><td>用户 Skill 隔离</td><td><strong>修正</strong></td><td>不只是 UI 权限隔离。读取和装载按用户身份检查，Agent 执行时使用隔离的 HOME / OS 执行身份；没有执行隔离前，不向不同用户开放任意脚本 Skill。</td></tr>
+<tr><td>Git / ZIP 来源</td><td><strong>保留简化</strong></td><td>支持手动导入和手动更新，使用固定 Git commit 或上传文件；不做自动订阅更新和审批平台。</td></tr>
+<tr><td>Skill 格式</td><td><strong>复用</strong></td><td>使用 Agent Skills 标准的完整目录结构（<code>SKILL.md</code>、<code>scripts</code>、<code>references</code>、<code>assets</code>）。</td></tr>
+</tbody></table>
+</section>
+<section id="flow"><h2>二、装载流程：Rook 唯一负责实际可见集合</h2>
+<div class="flow">
+<div class="cols"><div class="node"><strong>系统 Skills</strong><small>镜像初始 + 管理员维护</small></div><div class="node"><strong>用户 Skills</strong><small>本人上传 / 从 Git 添加</small></div></div>
+<div class="arrow">↓</div><div class="node"><strong>Rook 解析当前用户可用的 Skills</strong><small>系统清单 + 当前用户清单 · 唯一名称 · 启用状态</small></div>
+<div class="arrow">↓</div><div class="node"><strong>生成 Session Skill 清单，并在用户专属执行目录装载</strong><small>固定内容摘要 · 只读拷贝 / 受控挂载 · 不共享用户 HOME</small></div>
+<div class="arrow">↓</div><div class="cols"><div class="node"><strong>Codex / Pi / Claude Code</strong><small>使用各自原生 Skill 发现机制</small></div><div class="node"><strong>SuperAgent（后续）</strong><small>沿用已确定的 Skill 清单</small></div></div></div>
+<div class="callout" style="margin-top:14px"><strong>最重要的技术约束：</strong>镜像内置 Skill 应放在 <code>/opt/rook/seed-skills/</code> 这样的非扫描目录；管理员禁用后，不能仍被 Runtime 从 <code>/etc/codex/skills</code>、共享 HOME 或其他默认路径偷偷加载。Rook 只把<strong>有效清单</strong>复制到当前用户的 Runtime Skill 目录。项目仓库自身带的 Skills 属于 Runtime 的项目上下文，需另外识别冲突，首期不接管其生命周期。</div>
+</section>
+<section id="operations"><h2>三、管理行为只保留基本操作</h2>
+<div class="grid"><div class="card"><span class="tag">ADMIN</span><h3>系统 Skills</h3><p>列出所有系统 Skill，包含来自镜像的默认 Skill。可添加、更新、停用、删除；删除镜像默认 Skill 后，后续部署不能自动复活它。</p></div>
+<div class="card"><span class="tag">USER</span><h3>我的 Skills</h3><p>仅显示自己的 Skill。可以添加、更新、停用、删除；不能更改系统 Skill。与系统 Skill 同名时拒绝安装，避免隐式覆盖。</p></div></div>
+<p>新版本只影响新 Session；已有 Session 默认保持之前装载的内容。需要让旧 Session 使用新 Skill 时，由用户明确刷新并在下一轮安全边界应用，而不是无提示热更新。</p>
+<p><strong>镜像升级：</strong>已有环境不重复初始化 Skill；新增镜像默认 Skill 由管理员明确选择导入。管理员配置是权威状态，镜像不能自动覆盖。仅当首次初始化系统清单为空时才导入镜像默认值。</p>
+</section>
+<section id="storage"><h2>四、存储：复用 BOSS + MySQL</h2>
+<table><thead><tr><th>位置</th><th>保存内容</th></tr></thead><tbody>
+<tr><td>镜像</td><td>默认 Skill 文件，仅供首次初始化与管理员手动导入</td></tr>
+<tr><td>MySQL</td><td>Skill 名称、归属范围（system / user）、用户 ID、启停状态、当前内容摘要和来源</td></tr>
+<tr><td>BOSS</td><td>不可变的 Skill 文件包（按内容摘要保存，旧 Session 需要的旧包保留）</td></tr>
+<tr><td>Session 状态</td><td>实际装载的 Skill 名称及文件包摘要，便于跨 Worker 恢复</td></tr>
+<tr><td>Worker 临时目录</td><td>本次 Session 的已解析 Skill 文件，重新启动即可重建</td></tr>
+</tbody></table>
+<pre>Skill record（逻辑模型）
+  namespace     = "system" | "user:{userId}"
+  name          = "northstar"  // namespace 内唯一
+  enabled       = true
+  active_hash   = sha256(whole-skill-package)
+  source        = image | git | upload
+
+Session
+  skill_manifest = [{ namespace, name, hash }, ...]</pre>
+<p>不需要独立 Release 表、Skill Registry 或发布状态机。每次管理员或用户修改内容时，先将完整包保存到 BOSS，再更新 MySQL 的当前摘要；旧内容在仍被 Session 引用时不清理。BOSS Key 不直接暴露给其他用户。</p>
+</section>
+<section id="implementation"><h2>五、实施顺序与完成标准</h2>
+<div class="step"><div class="stepnum">P0</div><div><h3>先贯通 Magpie Chat</h3><p>镜像/管理员提供的系统 Skill 可被真实 Codex、Pi 或 Claude Code 原生发现；Magpie 是模型工程领域 Harness，不把整个 Magpie 错误地压成一个 Skill。</p></div></div>
+<div class="step"><div class="stepnum">P1</div><div><h3>管理员管理系统 Skill</h3><p>无需重建镜像，添加/更新/停用系统 Skill；镜像升级和 Worker 重启后生效状态保持一致。</p></div></div>
+<div class="step"><div class="stepnum">P2</div><div><h3>用户私有 Skill 与跨 Worker 恢复</h3><p>A 只能看到和装载自己的 Skill；A 的脚本不能读取 B 的目录；升级后新 Session 使用新版本，已有 Session 仍能按旧摘要从 BOSS 恢复。</p></div></div>
+<div class="callout" style="margin-top:17px"><strong>最小验证：</strong>系统原有 <code>review</code>，管理员停用后，新 Session 的三个 Runtime 均不再发现它；管理员升级后原 Session 仍能恢复原版本；用户 A 添加 <code>helper</code>，用户 B 既不能读取也不能通过 Agent Shell 访问它。</div>
+</section>
+<section id="references"><h2>六、相关依据与边界</h2><p>遵循 <a href="https://agentskills.io/specification" target="_blank" rel="noopener noreferrer">Agent Skills 规范</a>；Codex 官方 <a href="https://learn.chatgpt.com/docs/build-skills" target="_blank" rel="noopener noreferrer">Skill 加载路径文档</a>说明 Runtime 会扫描多个位置，且同名 Skill 不一定自动合并，因此 Rook 必须控制实际扫描集合，不依赖 Runtime 发现顺序。</p>
+<p>项目资产：<a href="https://github.com/feng-y/skill" target="_blank" rel="noopener noreferrer">feng-y/skill</a> 的 Skills 有各自职责与项目规则；Magpie 是模型工程领域 Harness，除了 Skills 还可能包含规则、Context 与内部工具配置。这些应由各自原有机制提供，不属于 Rook 的“Skill 管理”范畴。</p></section>
+<footer>Rook / Skill Management v0.2 · Design only，尚未实施 · <a href="../">返回 Harness 总方案</a></footer>
+</main>
+</body>
+</html>
