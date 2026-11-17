@@ -33,7 +33,7 @@ footer{padding-top:30px;margin-top:47px;border-top:1px solid var(--line);color:v
 </style>
 </head>
 <body>
-<header><nav class="top" aria-label="页面导航"><div class="brand">Harness Workspace <span style="color:#91a4b1;font-weight:500">/ Design</span></div><div class="links"><a href="#architecture">架构</a><a href="#decisions">已确定</a><a href="#events">事件响应</a><a href="#technology">技术选型</a><a href="#references">设计借鉴</a><a href="#roadmap">推进路线</a><a href="#questions">待解决问题</a><a href="https://github.com/feng-y/guide-page/tree/main/harness-workspace">页面源码</a></div></nav></header>
+<header><nav class="top" aria-label="页面导航"><div class="brand">Harness Workspace <span style="color:#91a4b1;font-weight:500">/ Design</span></div><div class="links"><a href="#architecture">架构</a><a href="#decisions">已确定</a><a href="#events">事件响应</a><a href="#technology">技术选型</a><a href="#references">设计借鉴</a><a href="#roadmap">推进路线</a><a href="./skills/">Rook Skills</a><a href="#questions">待解决问题</a><a href="https://github.com/feng-y/guide-page/tree/main/harness-workspace">页面源码</a></div></nav></header>
 <main>
 <div class="hero"><div class="eyebrow">Independent system · Design baseline · 2026.11.15 · P0: Magpie Chat</div>
 <h1>从 MultiCA 退出，<br>重新构建 AI-Native Harness</h1>
@@ -80,6 +80,7 @@ footer{padding-top:30px;margin-top:47px;border-top:1px solid var(--line);color:v
 <tr><td>技术栈</td><td>TypeScript-first，React + Node.js 单体后端和 Worker；数据优先使用现有 MySQL，Go/Python 只在已有能力适合时复用。</td></tr>
 <tr><td>Session Persistence</td><td>MySQL 维护 Session 归属、Lease、Checkpoint 版本和指针；公司现有 BOSS 保存原生 Session 的不可变快照，Worker 本地仅为执行缓存。<a href="../agent-session-persistence/">查看 BOSS + MySQL v0.2 设计 →</a></td></tr>
 <tr><td>第一优先级 P0</td><td>Magpie Chat 真实贯通：Web Chat → 选定 Runtime → 原生加载 Magpie → 真实模型工程任务。当前不以 SuperAgent、Kanban 或 Webhook 为建设前置。</td></tr><tr><td>Harness</td><td>领域 Harness（Magpie）以现有仓库和原生机制复用，不为其开发第二套 Builder / Service Registry；不能只把 SKILL.md 内容拼进 Prompt。</td></tr>
+<tr><td>Skill 管理</td><td>Rook 采用系统 / 个人两级；镜像 Skill 仅一次性初始化，由管理员统一维护系统 Skill，用户私有 Skill 按身份与执行环境隔离。<a href="./skills/">查看 Rook Skill 管理设计 →</a></td></tr>
 <tr><td>SuperAgent</td><td>底层持续工作机制，由显式 @superagent、Scheduler、告警或需求事件唤醒；保存目标、执行反馈和下一步。</td></tr>
 <tr><td>持续改进</td><td>从真实任务的失败和使用反馈自然改进 Harness / Tools；不先建独立通用 Evaluation 平台。</td></tr>
 <tr><td>后置能力</td><td>独立 Bot UI、BYOC、复杂多租户、CMS 后置；外部告警与用户需求的事件接收是核心能力。</td></tr>
