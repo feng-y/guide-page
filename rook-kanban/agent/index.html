@@ -32,13 +32,13 @@ main{max-width:1140px;margin:auto;padding:36px 24px 60px}.mast{display:flex;just
 <table>
 <thead><tr><th scope="col">方案</th><th scope="col">用户先去哪</th><th scope="col">什么持续存在</th><th scope="col">用户最后验收什么</th><th scope="col">新增依赖</th></tr></thead>
 <tbody>
-<tr><th scope="row">B1 委派需求</th><td>Kanban 需求详情</td><td>Task。处理人定义范围，Agent 在范围内执行。</td><td>一份交付。通过后 Task 完成。</td><td>Task 关联已授权 Chat，保存交付和验收。</td></tr>
+<tr><th scope="row">B1 委派需求</th><td>Kanban 需求详情</td><td>Task。处理人与 Agent 在同一张卡片上澄清、执行和验收。</td><td>一份交付。通过后 Task 完成。</td><td>Task 关联已授权 Chat，保存交付和验收。</td></tr>
 <tr><th scope="row">B2 Chat 协作</th><td>Chat</td><td>Chat。人与 Agent 边查边定范围，可以产生多个独立 Task。</td><td>已经解决的事项留在 Chat。用户只把仍需他人跟进的事项加入 Kanban。</td><td>从 Chat 摘要确认后创建 Task，并保存授权来源链接。</td></tr>
 <tr><th scope="row">B3 托管目标</th><td>SuperAgent 目标</td><td>目标。Agent 在用户授权的范围内根据新观测创建、跟进 Task。</td><td>目标是否持续达标。某个 Task 完成后，目标继续生效。</td><td>目标、事件来源、指标观测、运行预算和人工审批。</td></tr>
 </tbody>
 </table>
 </div>
-<div class="recommend"><h3>现阶段推荐 B1</h3><p>Rook 已经接收反馈并创建 Task。此时用户最缺的动作是把已明确的 Task 委派给 Agent，然后直接在原需求里验收。B1 只给现有流程补上这段。</p><p>如果用户通常先在 Chat 里弄清问题，再把少数事项交给团队，首选 B2。如果用户想让 Agent 承担一段时间内的持续责任，再选 B3。</p><p>独立 Inbox 在三版里的价值不同。B1 用 Kanban 的「待我验收」。B2 的决策留在当前 Chat。B3 若同时管理多个目标，跨目标的人工审批才有理由集中到独立 Inbox。</p></div>
+<div class="recommend"><h3>现阶段推荐 B1</h3><p>Rook 已经接收反馈并创建 Task。B1 让 Agent 和处理人围绕原 Task 澄清要求、补充证据和验收。用户可以在卡片上接着交互。</p><p>如果用户通常先在 Chat 里弄清问题，再把少数事项交给团队，首选 B2。如果用户想让 Agent 承担一段时间内的持续责任，再选 B3。</p><p>独立 Inbox 在三版里的价值不同。B1 用 Kanban 的「待我验收」。B2 的决策留在当前 Chat。B3 若同时管理多个目标，跨目标的人工审批才有理由集中到独立 Inbox。</p></div>
 </section>
 </main>
 <script>
@@ -46,12 +46,14 @@ const variants = {
   task: {
     title:'B1 · 委派需求',
     route:'反馈移交 → Kanban → 需求详情',
-    reason:'Multica 把 Agent 分派到已经存在的需求，并把进展和结果写回同一条需求。',
+    reason:'Multica 的 Agent 读取已有需求和讨论，并把进展和结果写回同一条需求。B1 把双方的澄清也留在这张卡片上。',
     source:'<a href="https://multica.ai/docs/assigning-issues">Multica Agent 分派</a>',
     steps:[
-      ['Kanban / 需求详情','修复自动化任务失败提醒','待处理 · 处理人 林','这张卡片从反馈移交创建。林确认验收条件为「超时和重试失败均发出提醒」。','委派给 Agent'],
-      ['Kanban / 需求详情','修复自动化任务失败提醒','待验收 · 最近 Run #1','Agent 提交模拟 PR #248。超时、重试两项回归均通过。林在原 Task 上查看证据。','通过验收'],
-      ['Kanban / 需求详情','修复自动化任务失败提醒','已完成 · 林通过验收','Rook 在 Task 上保存交付证据和验收结果。','']
+      ['Kanban / 需求详情','修复自动化任务失败提醒','待处理 · 处理人 林','这张卡片从反馈移交创建。林请 Agent 复现问题。','请 Agent 开始排查'],
+      ['Kanban / 需求详情','修复自动化任务失败提醒','等林澄清 · Agent 提问','Agent 发现同一个任务可能重试多次，主动问林是否需要每次失败都发提醒。','回复：最终失败只发一次'],
+      ['Kanban / 需求详情','修复自动化任务失败提醒','待验收 · 最近 Run #2','Agent 根据林的回复修复重试路径，提交模拟 PR #248 和回归证据。','追问：超时后重试成功会提醒吗？'],
+      ['Kanban / 需求详情','修复自动化任务失败提醒','待验收 · 最近 Run #3','Agent 回复「重试成功不提醒」，并补充该场景的回归结果。林在原 Task 上查看证据。','通过验收'],
+      ['Kanban / 需求详情','修复自动化任务失败提醒','已完成 · 林通过验收','Rook 在 Task 上保存双方对话、交付证据和验收结果。','']
     ],
     finish:'林验收的是这一次修复。这条 Task 已完成。'
   },
@@ -91,8 +93,19 @@ const buttons = [...document.querySelectorAll('[data-model]')];
 
 function context() {
   if(model==='task') {
+    const column = step === 0 ? 0 : step === 4 ? 2 : 1;
+    const messages = [
+      ['林','请复现失败提醒遗漏。'],
+      ['Agent','同一个任务重试多次，每次失败都要发提醒吗？'],
+      ['林','最终失败只发一次。'],
+      ['Agent','模拟 PR #248 已提交。连续重试最终失败只发一次。'],
+      ['林','超时后重试成功会提醒吗？'],
+      ['Agent','重试成功不会提醒，我补上了这条回归证据。']
+    ];
     return '<h3>Kanban</h3><div class="board context">'+['待处理','处理中','已完成'].map((lane,index)=>
-      '<section class="lane"><h3>'+lane+'</h3>'+(index===step?'<div class="card selected">RK-42 · 修复失败提醒</div>':'')+'</section>').join('')+'</div>';
+      '<section class="lane"><h3>'+lane+'</h3>'+(index===column?'<div class="card selected">RK-42 · 修复失败提醒</div>':'')+'</section>').join('')+'</div>'
+      +'<h3>Task 内的对话</h3>'+messages.slice(0,[0,2,4,6,6][step]).map(([actor,message])=>
+        '<div class="chat"><span class="meta">'+actor+'</span><p>'+message+'</p></div>').join('');
   }
   if(model==='chat') {
     return '<h3>Chat 里的调查</h3><div class="context"><div class="chat"><span class="meta">林</span><p>两次失败提醒遗漏是同一个原因吗？</p></div>'
