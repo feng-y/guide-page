@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Rook · Task 协作实施设计</title>
+<title>Rook · Task 协作最终方案</title>
 <style>
 :root{font-family:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;color:#202b25;background:#f5f6f2;--line:#d9e1d8;--green:#175b43;--muted:#505c55}
 *{box-sizing:border-box}body{margin:0}main{max-width:1000px;padding:40px 24px 55px;margin:auto}header{max-width:760px}a{color:var(--green);text-underline-offset:3px}a:focus-visible{outline:2px solid var(--green);outline-offset:3px}.brand{font-size:14px;font-weight:700}.intro,.quiet{color:var(--muted)}h1{font-size:clamp(31px,5.7vw,54px);letter-spacing:-.035em;line-height:1.15;margin:40px 0 12px}h2{font-size:25px;margin:0 0 12px}h3{font-size:16px;margin:0 0 7px}p,li{line-height:1.65}p{margin:0 0 12px}li{margin-bottom:6px}section{margin-top:30px;scroll-margin-top:14px}nav{display:flex;flex-wrap:wrap;gap:7px;margin-top:22px}nav a{border:1px solid var(--line);background:#fff;border-radius:7px;padding:7px 11px;text-decoration:none}.grid{display:grid;grid-template-columns:minmax(240px,.85fr) minmax(0,1.15fr);gap:12px}.panel{background:white;border:1px solid var(--line);border-radius:11px;padding:16px}.row{padding:8px 0;border-bottom:1px solid var(--line)}.row:last-child{border-bottom:0}.chip{display:inline-block;font-size:13px;border-radius:5px;margin:0 4px 6px 0;padding:3px 7px;background:#e5efe8;color:var(--green)}.chip.wait{background:#faedda;color:#654210}.wide{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:14px;background:#fff}th,td{text-align:left;padding:10px 12px;vertical-align:top;border:1px solid var(--line);line-height:1.5}thead{background:#e9eee8}code{border-radius:4px;background:#ebefea;padding:2px 4px;overflow-wrap:anywhere}footer{margin-top:35px;padding-top:16px;border-top:1px solid var(--line);font-size:13px}.note{background:#e7f1ea;border-radius:9px;padding:13px 15px}ol,ul{padding-left:24px;margin:8px 0}
@@ -14,82 +14,80 @@
 <header>
 <p class="brand">Rook / Kanban</p>
 <h1>一条 Task，RD 和 Agent 一起推进</h1>
-<p class="intro">Rook 保存承接人、状态、双方消息和交付证据。RD 和 Agent 在原有开发环境工作。开发 Agent 用 <code>rook-chat</code> 读取同一条 Task，回写消息和交付。</p>
-<nav aria-label="目录"><a href="#flow">交互</a><a href="#state">状态与权限</a><a href="#contract">rook-chat 契约</a><a href="#acceptance">落地与验收</a><a href="#taxonomy">类型与业务标签</a></nav>
+<p class="intro">RD 可以自己接单，也可以授权 Agent 接单。RD 接单后，Agent 仍可在同一条 Task 里协作。Rook 记录承接人、消息、状态和交付证据，RD 和 Agent 在各自的开发环境完成工作。</p>
+<nav aria-label="目录"><a href="#flow">协作流程</a><a href="#state">状态与权限</a><a href="#contract">rook-chat</a><a href="#taxonomy">检索与分组</a><a href="#acceptance">验证与上线</a></nav>
 </header>
 
 <section id="flow">
-<h2>从卡片接单到验收</h2>
+<h2>从反馈移交到验收</h2>
 <ol>
-<li>一条反馈移交为 Task。卡片展示问题、复现信息和验收条件。RD 可从授权范围内的「可接单」列表接单。自动派发时，外部派发流程把 Task ID 传给已授权的开发 Agent。</li>
-<li>开发 Agent 用 <code>rook-chat</code> 读取 Task。RD 或 Agent 接单成功后，Task 进入「处理中」。RD 已接单时，其授权的开发 Agent 可以协作，承接人仍为 RD。</li>
-<li>Agent 在开发中遇到未定的业务规则，向指定 RD 发问。Kanban 卡片显示「待 RD 回复」。RD 在 Task 详情回复，也可以主动发消息。开发 Agent 再次读取时，只读取游标之后的消息。</li>
-<li>RD 或 Agent 提交 MR 链接、验证结果和仍待确认的事项。卡片显示「待验收」。验收人通过后，Task 进入「已完成」。退回理由写进同一条 Task，承接人据此继续开发。</li>
+<li>有反馈管理权限的用户移交反馈时填写需求，选择处理人，也可以指定验收人、需求类型和业务标签。指定验收人会开启协作。处理人或管理员也可以稍后开启协作。</li>
+<li>RD 在 Kanban 的「可接单」或 <code>rook-chat</code> 中找到需求并接单。获授权的 Agent 也可以接单。同一条需求只会有一个承接人。RD 接单后，获授权的 Agent 可以留言、提问和交付，承接人仍为 RD。</li>
+<li>Agent 需要确认业务规则时提问。验收人从 Kanban 的「待我处理」打开需求，回复原提问。Agent 用活动游标读取新回复。RD 也可以主动留言。</li>
+<li>RD 或 Agent 提交交付说明和 HTTPS 证据链接。验收人可以通过或填写原因退回。退回后承接人继续处理并重新交付，历史交付和退回原因仍可查阅。</li>
 </ol>
-<div class="grid" aria-label="Task 详情示意">
-<div class="panel"><h3>RK-57 · 修复重试路径漏发</h3><p><span class="chip">处理中</span><span class="chip wait">待 RD 回复</span></p><div class="row">承接人 · 开发 Agent</div><div class="row">协作 RD · 林</div><div class="row">验收人 · 林</div></div>
-<div class="panel"><h3>Task 消息</h3><div class="row"><strong>开发 Agent → 林</strong><p>最终失败时要发一次提醒，还是每次重试失败都发？</p></div><div class="row"><strong>林 → 开发 Agent</strong><p>最终失败只发一次。重试成功不发。请补两条回归。</p></div><p class="quiet">RD 的回复关联这条提问，卡片清除「待 RD 回复」。</p></div>
+<div class="panel" aria-label="Task 协作示例">
+<h3>示例 · RK-57 修复重试路径漏发</h3>
+<div class="row">RD 林接单，授权 Agent 协助验证。</div>
+<div class="row">Agent 提问「最终失败时提醒一次，还是每次重试失败都提醒？」</div>
+<div class="row">林回复「最终失败只提醒一次。重试成功时不提醒。」</div>
+<div class="row">Agent 提交测试结果。林验收后，RK-57 进入已完成，承接人仍为林。</div>
 </div>
 </section>
 
 <section id="state">
 <h2>状态与权限</h2>
 <div class="wide"><table>
-<thead><tr><th scope="col">动作</th><th scope="col">Task 状态</th><th scope="col">Rook 保存什么</th></tr></thead>
+<thead><tr><th scope="col">操作</th><th scope="col">看板状态</th><th scope="col">Rook 的记录</th></tr></thead>
 <tbody>
-<tr><td>读取或发出派发请求</td><td>待处理</td><td>读取返回当前内容。承接人以成功接单为准。</td></tr>
-<tr><td>RD 或 Agent 接单</td><td>处理中</td><td>记录唯一承接人和时间。旧 revision 返回冲突。</td></tr>
-<tr><td>Agent 提问，RD 回复</td><td>处理中</td><td>提问指定 RD，回复关联原消息。「待 RD 回复」由未回复的提问计算。</td></tr>
-<tr><td>提交交付</td><td>处理中 · 待验收</td><td>保存当前交付版本、MR 和验证证据。</td></tr>
-<tr><td>通过或退回</td><td>通过后已完成。退回后处理中。</td><td>验收人针对当前交付版本操作。退回记录理由，前一版证据仍可查阅。</td></tr>
+<tr><td>反馈移交</td><td>待处理</td><td>保存来源、处理人和选择的分类。指定验收人时开启协作。</td></tr>
+<tr><td>RD 或 Agent 接单</td><td>处理中</td><td>在同一事务中确认唯一承接人。并发接单的一方成功，另一方重新读取状态。</td></tr>
+<tr><td>提问与回复</td><td>处理中，待 RD 回复</td><td>回复关联原提问。待回复期间，交付需等待回复。</td></tr>
+<tr><td>提交交付</td><td>处理中，待验收</td><td>保存交付说明和证据链接。验收针对当前交付记录。</td></tr>
+<tr><td>通过或退回</td><td>已完成或保持处理中</td><td>通过后完成需求。退回记录原因，并允许重新提交交付。</td></tr>
 </tbody>
 </table></div>
 <ul>
-<li>移交时明确哪些 RD 可以接单。首期可使用 Task 上的小范围授权名单。进入名单只授予该 Task 的访问权限。接单后由当前承接人负责开发，协作 RD 负责回复，验收人负责通过或退回。试点默认协作 RD 和验收人为同一人，可在移交时指定。</li>
-<li>Task 消息按 Task 权限访问。来源 Chat、快照和 MR 分别沿用它们自身的权限。用户可以从来源摘录必要信息到 Task，经确认后供协作者阅读。</li>
-<li>本地 Agent 可在 RD 已授权的身份下协作。无人值守开发 Agent 使用与 Task 绑定的独立授权。Rook 从服务端身份确认作者和操作权限。收到 Agent 接单时，Rook 再核对 Task 和授权是否匹配。</li>
-<li>现有反馈移交和已完成 Task 继续可读。启用协作的 Task 通过专门的接单、交付和验收动作变更状态，旧移列入口也执行同样的校验。</li>
+<li>处理人或管理员可以更换验收人。现有待回复和待验收记录会随需求保留。</li>
+<li>Agent 的凭据仅授权此 Task，可由处理人或管理员重新签发或撤销。来源 Chat、回答快照和交付链接沿用各自的权限。</li>
+<li>写入校验 <code>revision</code>。同一操作重试时复用原 <code>requestId</code>，Rook 返回原活动 ID。历史需求继续可读，未开启协作的需求继续支持直接移列。</li>
 </ul>
 </section>
 
 <section id="contract">
-<h2>rook-chat 契约</h2>
-<p>以下名称用于评审。Web 和 <code>rook-chat</code> 调用 Rook Backend 的同一套业务操作。</p>
+<h2>rook-chat 操作</h2>
 <div class="wide"><table>
-<thead><tr><th scope="col">操作</th><th scope="col">输入与结果</th></tr></thead>
+<thead><tr><th scope="col">用途</th><th scope="col">命令</th><th scope="col">调用约定</th></tr></thead>
 <tbody>
-<tr><td>读取 Task</td><td>输入 Task ID。返回标题、目标、复现信息、验收条件、承接人、状态和 revision。可按当前身份列出可接单 Task。</td></tr>
-<tr><td>接单</td><td>输入 Task ID、revision、requestId。Rook 在一个事务内校验权限、确认唯一承接人、推进状态。</td></tr>
-<tr><td>读取和追加消息</td><td>读取可带 cursor，返回增量消息及下一游标。写入带 requestId。需要 RD 回复时，指定已获授权的 RD。回复通过 replyTo 关联原提问。</td></tr>
-<tr><td>提交交付</td><td>输入 Task ID、当前 revision、MR、验证摘要和 requestId。Rook 保存一版交付并标记「待验收」。</td></tr>
-<tr><td>验收</td><td>验收人在 Web 针对当前交付版本通过或退回。退回时填写原因。</td></tr>
+<tr><td>找可接单或待我处理的需求</td><td><code>listTasks</code></td><td>RD 传 <code>attention=claim</code> 或 <code>attention=review</code>，可与关键词和标签组合使用。</td></tr>
+<tr><td>读取需求和活动</td><td><code>getTask</code>、<code>getTaskActivity</code></td><td>按 Task ID 读取。继续读活动时传上一条活动 ID 作为 <code>after</code>。</td></tr>
+<tr><td>参与协作</td><td><code>claimTask</code>、<code>messageTask</code>、<code>questionTask</code>、<code>replyTask</code>、<code>deliverTask</code></td><td>写入传 Task ID、<code>revision</code> 和 <code>requestId</code>。验收人回复时带原提问 ID。</td></tr>
 </tbody>
 </table></div>
-<p class="note">同一个 requestId 重试同一写入返回原结果。接单冲突时先重读 Task，未接单的一方停止开工，后续读取仍按 Task 权限校验。RD 回复时保存消息。外部 Agent 何时恢复执行由它的开发流程决定。</p>
-</section>
-
-<section id="acceptance">
-<h2>落地与验收</h2>
-<ol>
-<li><strong>打通授权读取和 RD 主动接单。</strong> 扩展现有 Kanban 权限和接单规则。让真实 RD 用 <code>rook-chat</code> 读取一条反馈 Task。用两份开发环境同时接单验证只有一方成功。</li>
-<li><strong>打通 Task 消息与真实交付。</strong> Agent 发问，RD 从 Kanban 回复，Agent 按游标读到回复并提交 MR。RD 退回一次再通过。重复发送、断开后按游标补读和其他用户越权分别验证。</li>
-<li><strong>接入现有自动派发。</strong> 先确认可用的外部派发入口，再用它传 Task ID 给已授权 Agent。验证 RD 主动接单和自动接单同时到达、派发重试、授权撤销时的结果。</li>
-</ol>
-<p>Kanban 用「可接单」找新需求，用「待我处理」找待回复和待验收。跨入口的人工决策出现后再评估独立 Inbox。</p>
+<p>RD 使用公司 SSO。外部 Agent 使用 Task 凭据。验收、退回和签发凭据从 Kanban 详情操作。</p>
 </section>
 
 <section id="taxonomy">
-<h2>类型与业务标签</h2>
+<h2>检索、分类与分组</h2>
 <div class="wide"><table>
-<thead><tr><th scope="col">字段</th><th scope="col">首批值</th><th scope="col">使用方式</th></tr></thead>
+<thead><tr><th scope="col">维度</th><th scope="col">首批值</th><th scope="col">使用方式</th></tr></thead>
 <tbody>
-<tr><th scope="row">Task 类型</th><td>功能需求、bugfix、分析</td><td>单选。创建或移交时可填，历史 Task 可以未分类。</td></tr>
-<tr><th scope="row">业务标签</th><td>在线、样本、训练</td><td>多选。跨业务 Task 可以同时标记两个业务。首批标签用固定字典，后续按实际需求维护。</td></tr>
+<tr><th scope="row">需求类型</th><td>功能需求、Bugfix、分析</td><td>单选。历史需求可保留为未分类。</td></tr>
+<tr><th scope="row">业务标签</th><td>在线、样本、训练</td><td>多选。按业务分组时，同一条跨业务需求可从多个组打开。</td></tr>
 </tbody>
 </table></div>
-<p>例如「排查训练样本与在线特征不一致」的 Task 类型是「分析」，业务标签可选「在线」「样本」「训练」。列表支持组合筛选，例如「<code>bugfix</code> + 在线 + 处理中」。</p>
-<p>列表先支持按 Task 类型分组。按业务分组时，用户可以从任一业务组找到跨业务 Task，所有入口都打开原 Task。全量计数按 Task ID 去重。Kanban 继续按状态分列，可用类型和业务标签缩小范围。</p>
-<p>业务标签用于检索和分组。实际团队承担派发或拥有访问权限时，再引入独立的「承接组」。</p>
+<p>看板按状态分列。处理大量 Task 时，可以切到列表并按需求类型或业务标签分组。搜索支持 <code>RK-57</code>、标题和描述，并可与类型、业务标签、状态组合筛选。结果分页加载。</p>
+<p>当前用 Kanban 的「待我处理」集中展示待回复和待验收的需求。出现跨入口的人工决策后，再评估独立 Inbox。</p>
+</section>
+
+<section id="acceptance">
+<h2>验证与上线</h2>
+<ul>
+<li><strong>本地已验证。</strong> 编译版 Web 与本地 MySQL 跑通接单、提问回复、退回重提、验收、反馈移交和分组。独立测试覆盖并发接单和请求重试。</li>
+<li><strong>Multica 现版已复测。</strong> 公司 SSO 登录和 Kanban 读取通过。新版镜像已构建。</li>
+<li><strong>Multica 新版在线验收待完成。</strong> 数据库迁移已通过预检查。共享数据库的旧状态入口需先完成兼容发布。</li>
+<li><strong>后续接入自动派发。</strong> 外部派发流程将 Task ID 和对应授权交给开发 Agent。接单竞争仍由 Rook 判定。</li>
+</ul>
 </section>
 <footer>实现参考 <a href="https://github.com/graywrk/agent-kanban/blob/main/src/agent_kanban/mcp_server.py">Agent Kanban 的读取、领取和评论</a> · <a href="https://github.com/chuspeeism/dashi-taskboard/blob/main/skills/manage-taskboard/SKILL.md">Dashi 的 Skill、版本校验和验收</a> · <a href="https://github.com/block/buzz-app/blob/main/docs/channels.md">Buzz 的共享对话</a></footer>
 </main></body></html>
