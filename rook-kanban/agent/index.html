@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rook · Agent 交付 Kanban</title>
+<style>
+:root{font-family:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;color:#242623;background:#f4f5f1;--line:#dce1d8;--muted:#555f57;--accent:#175b43;--tint:#e8f2eb}
+*{box-sizing:border-box}body{margin:0}a{color:var(--accent);text-underline-offset:3px}button{font:inherit;cursor:pointer}button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #2e805f;outline-offset:3px}button:disabled{cursor:default;opacity:.65}
+main{max-width:1140px;margin:auto;padding:36px 24px 60px}.mast{display:flex;justify-content:space-between;gap:12px;align-items:center;font-size:14px}.brand{font-weight:750}.eyebrow,.meta{color:var(--muted);font-size:13px}h1{font-size:clamp(32px,5vw,60px);line-height:1.1;margin:50px 0 14px;letter-spacing:-.04em}h2{font-size:24px;margin:0 0 7px}h3{font-size:16px;margin:0 0 8px}p{line-height:1.65;margin:0 0 12px}.intro{max-width:720px;color:var(--muted)}nav{display:flex;flex-wrap:wrap;gap:8px;margin:27px 0 16px}nav button,.reset,.secondary{background:#fff;color:#27332c;border:1px solid var(--line);border-radius:8px;padding:9px 13px}nav button[aria-pressed=true]{background:#24382e;color:#fff;border-color:#24382e}.frame{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 22px;border-bottom:1px solid var(--line)}.toolbar p{margin:0}.stage{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(290px,1fr);min-height:345px}.workspace{background:#f6f8f5;padding:20px;border-right:1px solid var(--line)}.detail{padding:22px}.board-filter{display:flex;gap:8px;margin-bottom:10px}.board-filter button{padding:5px 8px;font-size:12px}.board-filter button[aria-pressed=true]{border-color:#82a697;background:var(--tint);color:var(--accent)}.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.lane{background:#ebeeea;border-radius:8px;padding:9px;min-height:190px}.lane h3{font-size:13px;margin-bottom:12px}.card,.row{background:white;border:1px solid var(--line);border-radius:8px;padding:11px;font-size:14px;overflow-wrap:anywhere}.selected{border-color:#82a697}.card .meta{font-size:11px;margin-bottom:5px}.rows{display:grid;gap:8px}.row{display:flex;justify-content:space-between;align-items:center;gap:10px}.row span:last-child{text-align:right}.state{display:inline-block;padding:3px 7px;border-radius:5px;background:var(--tint);color:var(--accent);font-size:12px;line-height:1.4}.state.wait{background:#f8ead3;color:#70410c}.state.muted{background:#edf0ec;color:#505b53}.list{list-style:none;margin:0;padding:0}.list li{padding:10px 0;border-bottom:1px solid var(--line)}.list li:last-child{border-bottom:0}.detail .primary,.detail .secondary{margin:8px 6px 0 0}.primary{border:1px solid var(--accent);border-radius:8px;padding:9px 13px;background:var(--accent);color:#fff}.activity{margin-top:17px}.activity summary{cursor:pointer;color:var(--accent);font-size:14px}.activity ul{font-size:13px;padding-left:19px}.notes{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:17px 22px;border-top:1px solid var(--line)}.notes p{font-size:14px;margin:0;color:var(--muted)}.decision{margin-top:33px}.overflow{overflow-x:auto}table{border-collapse:collapse;width:100%;margin:12px 0 18px;background:#fff;font-size:14px}th,td{text-align:left;padding:12px;border:1px solid var(--line);vertical-align:top}thead{background:#e9eee8}.recommend{padding:16px 20px;background:var(--tint);border-radius:8px}.recommend p:last-child,.detail p:last-child{margin-bottom:0}.source{font-size:13px}.notice{padding:14px 22px;border-top:1px solid var(--line);font-size:13px;color:var(--muted);margin:0}
+@media(max-width:720px){main{padding:23px 15px 36px}.stage{grid-template-columns:1fr}.workspace{border-right:0;border-bottom:1px solid var(--line);padding:12px}.lane{min-height:140px}.detail,.toolbar,.notes{padding:15px}.notes{gap:12px;grid-template-columns:1fr}.card{padding:8px}.toolbar{align-items:flex-start}.mast{font-size:12px}h1{margin-top:32px}}
+</style>
+</head>
+<body>
+<main>
+<div class="mast"><span class="brand">Rook / Kanban</span><a href="../">上一轮 A、B、C 方案</a></div>
+<h1>Agent 怎么接手一条需求</h1>
+<p class="intro">A 已支持反馈移交和需求流转。这里用同一条模拟需求对比三版 B。切换方案后，点按钮走一遍 Agent 开工、交付和人工验收。</p>
+<nav aria-label="选择方案">
+<button type="button" data-variant="b1" aria-pressed="true">B1 · 从卡片发起</button>
+<button type="button" data-variant="b2" aria-pressed="false">B2 · 有容量再开工</button>
+<button type="button" data-variant="b3" aria-pressed="false">B3 · 等事件继续</button>
+</nav>
+<div id="prototype" class="frame"></div>
+<section class="decision">
+<h2>实施顺序</h2>
+<div class="overflow">
+<table>
+<thead><tr><th scope="col">方案</th><th scope="col">谁推动下一步</th><th scope="col">新增依赖</th><th scope="col">何时值得做</th></tr></thead>
+<tbody>
+<tr><th scope="row">B1 从卡片发起</th><td>处理人启动。Agent 交付。处理人验收。</td><td>Task 关联已授权的 Chat。Rook Backend 保存交付和验收结果。</td><td>现在。用一条真实反馈验证验收闭环。</td></tr>
+<tr><th scope="row">B2 有容量再开工</th><td>处理人确认需求可开工。有容量时，Agent 领取已确认的需求。</td><td>可开工队列、WIP 上限、原子领取。示例按验收人计入 WIP。</td><td>已开始的需求反复积压在验收阶段。</td></tr>
+<tr><th scope="row">B3 等事件继续</th><td>处理人启动。已登记的 CI 事件让 Agent 继续同一条需求。</td><td>已授权的 CI 事件来源、去重、按 Task 关联、恢复前校验权限。</td><td>处理人频繁手动催 Agent 跟进 CI 或评论。</td></tr>
+</tbody>
+</table>
+</div>
+<div class="recommend"><h3>建议先做 B1</h3><p>保留现有三列。Agent 提交后，卡片在「处理中」显示「待验收」。处理人可以用「待我验收」直接打开交付证据。退回时保留理由和前一版证据。处理人通过后，需求进入「已完成」。</p><p>独立 Inbox 等到 Kanban 之外也出现由同一批人处理的审批再评估。B3 的 CI 事件属于执行触发，后续可以接入 Durable Inbox。</p></div>
+</section>
+</main>
+<script>
+const data = {
+  b1: {
+    title: 'B1 · 从卡片发起', lead: '处理人控制开工，Agent 推进到交付。',
+    benefit: '需求、Run 和交付证据都能从同一张卡片打开。处理人可以直接通过或退回。',
+    cost: '每条需求需要处理人点一次「让 Agent 开工」。',
+    source: '<a href="https://multica.ai/docs/assigning-issues">Multica 分派</a> · <a href="https://github.com/block/buzz-app/blob/main/docs/channels.md">Buzz 共享 thread</a>',
+    steps: {open: ['让 Agent 开工','running'], running: ['模拟 Agent 提交证据','review']}
+  },
+  b2: {
+    title: 'B2 · 有容量再开工', lead: '处理人确认需求可开工。Agent 按容量领取。',
+    benefit: '待验收也占用容量。积压时，下一条需求在队列里显示等待原因。',
+    cost: 'Rook 需要维护队列和领取规则。示例的 WIP 上限 2 仅用于演示。',
+    source: '<a href="https://kanbanguides.org/the-kanban-guide/2025.5/">The Kanban Guide · WIP 与拉取</a> · <a href="https://linear.app/docs/triage">Linear Triage</a>',
+    steps: {open: ['标为可开工','queued'], queued: ['模拟处理人验收另一条需求','available'], available: ['模拟 Agent 领取','running'], running: ['模拟 Agent 提交证据','review']}
+  },
+  b3: {
+    title: 'B3 · 等事件继续', lead: 'Agent 等待已登记的 CI 结果，并在需要时继续。',
+    benefit: 'CI 失败后，Agent 带着检查结果继续同一条需求。处理人最后只验收交付。',
+    cost: 'Rook 需要把事件绑定到这条需求，并处理权限、重复事件和重试。',
+    source: '<a href="https://github.com/pingdotgg/t3code/blob/main/docs/user/source-control.md">T3 Code · PR 跟进</a> · <a href="https://multica.ai/docs/issue-wakeups">Multica · 唤醒规则</a>',
+    steps: {open: ['让 Agent 开工','running'], running: ['模拟 Agent 提交 PR 并等待 CI','waiting'], waiting: ['模拟 CI 失败','failed'], failed: ['模拟 Agent 修复并通过 CI','review']}
+  }
+};
+
+const models = {
+  open: ['待处理','处理人 · 林','核对交接目标后启动 Agent。'],
+  queued: ['等待容量','验收人 · 林','已有两条需求在制，其中一条待验收。'],
+  available: ['可开工','验收人 · 林','另一条需求已完成。Agent 可以领取这条需求。'],
+  running: ['处理中','最近 Run · #1','Agent 正在复现失败提醒遗漏。'],
+  waiting: ['等待 CI','最近 Run · #1','Agent 已提交模拟 PR #248，等待回归检查。'],
+  failed: ['处理中','最近 Run · #2','CI 报出重试场景失败。Agent 已继续处理。'],
+  review: ['待验收','验收人 · 林','交付证据已提交。处理人可以通过或退回。'],
+  returned: ['已退回','处理人 · 林','退回理由：请补充连续两次失败的回归证据。'],
+  revision: ['处理中','Agent 正在补充证据','Agent 保留前一版证据，并补充处理人要求的场景。'],
+  done: ['已完成','已由林通过验收','交付证据和验收记录已保留在需求详情。']
+};
+let variant = 'b1';
+let status = 'open';
+let history = [];
+let revised = false;
+let onlyReview = false;
+const prototype = document.getElementById('prototype');
+const tabs = [...document.querySelectorAll('[data-variant]')];
+const task = '修复自动化任务失败提醒';
+
+function badge(label, style = '') {
+  return '<span class="state '+ style +'">'+ label +'</span>';
+}
+function kanban() {
+  const column = status === 'open' ? 0 : status === 'done' ? 2 : 1;
+  const filter = '<div class="board-filter"><button type="button" class="secondary" id="review-filter" aria-pressed="'+onlyReview+'">待我验收 · '+(status === 'review' ? '1' : '0')+'</button></div>';
+  if(onlyReview && status !== 'review') return filter + '<p class="meta">暂无待我验收的需求</p>';
+  return filter + '<div class="board">' + ['待处理','处理中','已完成'].map((name,i) =>
+    '<section class="lane"><h3>'+ name +'</h3>' + (i === column
+      ? '<div class="card selected"><div class="meta">RK-42 · 反馈移交</div><strong>'+ task +'</strong><p class="meta">'+ models[status][0] +'</p></div>'
+      : '<div class="meta">暂无需求</div>') + '</section>').join('') + '</div>';
+}
+function queue() {
+  const backlog = ['open','queued','available'].includes(status);
+  const occupied = status === 'open' || status === 'queued' ? 2 : status === 'available' || status === 'done' ? 1 : 2;
+  return '<h3>按验收人查看 · 林</h3><p class="meta">在制 '+ occupied +' / 2</p><div class="rows">'
+    + '<div class="row selected"><span>RK-42 · '+ task +'</span>'+badge(models[status][0], status === 'queued' ? 'wait' : '')+'</div>'
+    + '<div class="row"><span>RK-38 · 补齐发布回归</span>'+badge(occupied === 1 || !backlog ? '已完成' : '待验收','muted')+'</div>'
+    + '<div class="row"><span>RK-39 · 调整通知模板</span>'+badge('处理中','muted')+'</div></div>';
+}
+function timeline() {
+  const events = [['反馈已移交','open']];
+  const progress = new Set([status,...history.map(item => item.state)]);
+  if(progress.has('running')) events.push(['Agent 开始 Run #1','running']);
+  if(progress.has('waiting')) events.push(['模拟 PR #248 · 等待回归检查','waiting']);
+  if(progress.has('failed')) events.push(['CI 失败 · Agent 开始 Run #2','failed']);
+  if(progress.has('review')) events.push(['CI 通过 · Agent 提交证据','review']);
+  if(progress.has('done')) events.push(['林通过验收','done']);
+  return '<h3>RK-42 · PR 跟进</h3><ul class="list">'+events.map(([event,state])=>'<li class="row"><span>'+event+'</span>'+(status===state?badge('当前'):'')+'</li>').join('')+'</ul>';
+}
+function render(focusId) {
+  const v = data[variant];
+  const [label, actor, details] = models[status];
+  const common = {review:['通过验收','done'], returned:['让 Agent 补充证据','revision'], revision:['模拟 Agent 重新交付','review']};
+  const step = common[status] || v.steps[status];
+  const showDetail = variant !== 'b1' || !onlyReview || status === 'review';
+  prototype.innerHTML = '<div class="toolbar"><div><h2>'+ v.title +'</h2><p class="meta">'+v.lead+'</p></div><button class="reset" id="reset" type="button">重置示例</button></div>'
+    +'<div class="stage"><section class="workspace" aria-label="需求视图">'+({b1:kanban,b2:queue,b3:timeline}[variant]())+'</section>'
+    +(showDetail?'<section class="detail" aria-label="需求详情"><p class="eyebrow">RK-42 · 反馈移交</p><h3>'+task+'</h3>'
+    +'<p>'+badge(label,['queued','waiting','review','returned'].includes(status)?'wait':'')+'</p>'
+    +'<p class="meta">'+actor+'</p><p>'+details+'</p>'
+    +(['review','revision','returned','done'].includes(status)?'<details><summary>查看交付证据</summary><ul><li>模拟 PR #248 · 修复失败提醒遗漏</li><li>回归用例 · 超时与重试均通过</li>'+(revised?'<li>新增回归用例 · 连续两次失败均产生提醒</li>':'')+'</ul></details>':'')
+    +(step?'<button id="next" type="button" class="primary">'+step[0]+'</button>':'')
+    +(status==='review'?'<button id="return" type="button" class="secondary">退回并要求补证据</button>':'')
+    +(history.length?'<details class="activity"><summary>活动记录</summary><ul>'+history.map(item=>'<li>'+item.text+'</li>').join('')+'</ul></details>':'')
+    +'</section>':'<section class="detail" aria-label="需求详情"></section>')+'</div><div class="notes"><div><h3>解决什么问题</h3><p>'+v.benefit+'</p></div><div><h3>实现代价</h3><p>'+v.cost+'</p></div></div>'
+    +'<p class="notice">原型使用模拟需求、Run 和 PR。参考 '+v.source+'</p>';
+  document.getElementById('reset').onclick = () => reset('reset');
+  const filter = document.getElementById('review-filter');
+  if(filter) filter.onclick = () => {
+    onlyReview = !onlyReview;
+    render('review-filter');
+  };
+  if(showDetail && step) document.getElementById('next').onclick = () => advance(step[1],step[0]);
+  if(status==='review') document.getElementById('return').onclick = () => advance('returned','林退回交付，要求补充连续两次失败的证据');
+  if(focusId) (document.getElementById(focusId) || document.getElementById('reset')).focus();
+}
+function advance(next, text) {
+  if(status === 'revision') revised = true;
+  status = next;
+  history.push({state:next,text});
+  render('next');
+}
+function reset(focusId) {
+  status = 'open';
+  history = [];
+  revised = false;
+  onlyReview = false;
+  render(focusId);
+}
+for(const tab of tabs) {
+  tab.onclick = () => {
+    variant = tab.dataset.variant;
+    for(const other of tabs) other.setAttribute('aria-pressed', String(other === tab));
+    reset();
+  };
+}
+render();
+</script>
+</body>
+</html>
