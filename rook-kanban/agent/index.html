@@ -3,161 +3,127 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Rook · Agent 交付 Kanban</title>
+<title>Rook · Agent 协作设计</title>
 <style>
 :root{font-family:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;color:#242623;background:#f4f5f1;--line:#dce1d8;--muted:#555f57;--accent:#175b43;--tint:#e8f2eb}
 *{box-sizing:border-box}body{margin:0}a{color:var(--accent);text-underline-offset:3px}button{font:inherit;cursor:pointer}button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #2e805f;outline-offset:3px}button:disabled{cursor:default;opacity:.65}
 main{max-width:1140px;margin:auto;padding:36px 24px 60px}.mast{display:flex;justify-content:space-between;gap:12px;align-items:center;font-size:14px}.brand{font-weight:750}.eyebrow,.meta{color:var(--muted);font-size:13px}h1{font-size:clamp(32px,5vw,60px);line-height:1.1;margin:50px 0 14px;letter-spacing:-.04em}h2{font-size:24px;margin:0 0 7px}h3{font-size:16px;margin:0 0 8px}p{line-height:1.65;margin:0 0 12px}.intro{max-width:720px;color:var(--muted)}nav{display:flex;flex-wrap:wrap;gap:8px;margin:27px 0 16px}nav button,.reset,.secondary{background:#fff;color:#27332c;border:1px solid var(--line);border-radius:8px;padding:9px 13px}nav button[aria-pressed=true]{background:#24382e;color:#fff;border-color:#24382e}.frame{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 22px;border-bottom:1px solid var(--line)}.toolbar p{margin:0}.stage{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(290px,1fr);min-height:345px}.workspace{background:#f6f8f5;padding:20px;border-right:1px solid var(--line)}.detail{padding:22px}.board-filter{display:flex;gap:8px;margin-bottom:10px}.board-filter button{padding:5px 8px;font-size:12px}.board-filter button[aria-pressed=true]{border-color:#82a697;background:var(--tint);color:var(--accent)}.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.lane{background:#ebeeea;border-radius:8px;padding:9px;min-height:190px}.lane h3{font-size:13px;margin-bottom:12px}.card,.row{background:white;border:1px solid var(--line);border-radius:8px;padding:11px;font-size:14px;overflow-wrap:anywhere}.selected{border-color:#82a697}.card .meta{font-size:11px;margin-bottom:5px}.rows{display:grid;gap:8px}.row{display:flex;justify-content:space-between;align-items:center;gap:10px}.row span:last-child{text-align:right}.state{display:inline-block;padding:3px 7px;border-radius:5px;background:var(--tint);color:var(--accent);font-size:12px;line-height:1.4}.state.wait{background:#f8ead3;color:#70410c}.state.muted{background:#edf0ec;color:#505b53}.list{list-style:none;margin:0;padding:0}.list li{padding:10px 0;border-bottom:1px solid var(--line)}.list li:last-child{border-bottom:0}.detail .primary,.detail .secondary{margin:8px 6px 0 0}.primary{border:1px solid var(--accent);border-radius:8px;padding:9px 13px;background:var(--accent);color:#fff}.activity{margin-top:17px}.activity summary{cursor:pointer;color:var(--accent);font-size:14px}.activity ul{font-size:13px;padding-left:19px}.notes{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:17px 22px;border-top:1px solid var(--line)}.notes p{font-size:14px;margin:0;color:var(--muted)}.decision{margin-top:33px}.overflow{overflow-x:auto}table{border-collapse:collapse;width:100%;margin:12px 0 18px;background:#fff;font-size:14px}th,td{text-align:left;padding:12px;border:1px solid var(--line);vertical-align:top}thead{background:#e9eee8}.recommend{padding:16px 20px;background:var(--tint);border-radius:8px}.recommend p:last-child,.detail p:last-child{margin-bottom:0}.source{font-size:13px}.notice{padding:14px 22px;border-top:1px solid var(--line);font-size:13px;color:var(--muted);margin:0}
 @media(max-width:720px){main{padding:23px 15px 36px}.stage{grid-template-columns:1fr}.workspace{border-right:0;border-bottom:1px solid var(--line);padding:12px}.lane{min-height:140px}.detail,.toolbar,.notes{padding:15px}.notes{gap:12px;grid-template-columns:1fr}.card{padding:8px}.toolbar{align-items:flex-start}.mast{font-size:12px}h1{margin-top:32px}}
 </style>
+<style>
+.route{font-size:13px;color:var(--accent);margin-bottom:10px}.workspace h3{font-size:18px}.workspace .rows{margin-top:14px}.chat{margin:13px 0;padding:13px 15px;border-radius:10px;background:white;border:1px solid var(--line)}.chat p{margin:3px 0 0}.workspace .state{margin-bottom:8px}.decision h2{margin-bottom:12px}.context{margin-bottom:18px}.context .lane{min-height:95px}.context .card{font-size:12px}.context .lane h3{font-size:13px}.context progress{width:100%;accent-color:var(--accent)}.context .chat{font-size:14px}.finish{margin-top:12px;padding:12px;border-radius:8px;background:var(--tint);font-size:14px}
+</style>
 </head>
 <body>
 <main>
-<div class="mast"><span class="brand">Rook / Kanban</span><a href="../">上一轮 A、B、C 方案</a></div>
-<h1>Agent 怎么接手一条需求</h1>
-<p class="intro">A 已支持反馈移交和需求流转。这里用同一条模拟需求对比三版 B。切换方案后，点按钮走一遍 Agent 开工、交付和人工验收。</p>
+<div class="mast"><span class="brand">Rook / Kanban</span><a href="../">已有 Kanban 方案</a></div>
+<h1>人把什么交给 Agent？</h1>
+<p class="intro">同一个场景：自动化任务失败后，用户偶尔收不到提醒。三版分别让用户交给 Agent 一条需求、一次协作，或一个持续目标。切换方案，看看工作从哪里开始，最后停在哪里。</p>
 <nav aria-label="选择方案">
-<button type="button" data-variant="b1" aria-pressed="true">B1 · 从卡片发起</button>
-<button type="button" data-variant="b2" aria-pressed="false">B2 · 有容量再开工</button>
-<button type="button" data-variant="b3" aria-pressed="false">B3 · 等事件继续</button>
+<button type="button" data-model="task" aria-pressed="true">B1 · 委派需求</button>
+<button type="button" data-model="chat" aria-pressed="false">B2 · Chat 协作</button>
+<button type="button" data-model="goal" aria-pressed="false">B3 · 托管目标</button>
 </nav>
-<div id="prototype" class="frame"></div>
+<div class="frame" id="demo"></div>
+
 <section class="decision">
-<h2>实施顺序</h2>
+<h2>哪一种适合 Rook</h2>
 <div class="overflow">
 <table>
-<thead><tr><th scope="col">方案</th><th scope="col">谁推动下一步</th><th scope="col">新增依赖</th><th scope="col">何时值得做</th></tr></thead>
+<thead><tr><th scope="col">方案</th><th scope="col">用户先去哪</th><th scope="col">什么持续存在</th><th scope="col">用户最后验收什么</th><th scope="col">新增依赖</th></tr></thead>
 <tbody>
-<tr><th scope="row">B1 从卡片发起</th><td>处理人启动。Agent 交付。处理人验收。</td><td>Task 关联已授权的 Chat。Rook Backend 保存交付和验收结果。</td><td>现在。用一条真实反馈验证验收闭环。</td></tr>
-<tr><th scope="row">B2 有容量再开工</th><td>处理人确认需求可开工。有容量时，Agent 领取已确认的需求。</td><td>可开工队列、WIP 上限、原子领取。示例按验收人计入 WIP。</td><td>已开始的需求反复积压在验收阶段。</td></tr>
-<tr><th scope="row">B3 等事件继续</th><td>处理人启动。已登记的 CI 事件让 Agent 继续同一条需求。</td><td>已授权的 CI 事件来源、去重、按 Task 关联、恢复前校验权限。</td><td>处理人频繁手动催 Agent 跟进 CI 或评论。</td></tr>
+<tr><th scope="row">B1 委派需求</th><td>Kanban 需求详情</td><td>Task。处理人定义范围，Agent 在范围内执行。</td><td>一份交付。通过后 Task 完成。</td><td>Task 关联已授权 Chat，保存交付和验收。</td></tr>
+<tr><th scope="row">B2 Chat 协作</th><td>Chat</td><td>Chat。人与 Agent 边查边定范围，可以产生多个独立 Task。</td><td>已经解决的事项留在 Chat。用户只把仍需他人跟进的事项加入 Kanban。</td><td>从 Chat 摘要确认后创建 Task，并保存授权来源链接。</td></tr>
+<tr><th scope="row">B3 托管目标</th><td>SuperAgent 目标</td><td>目标。Agent 在用户授权的范围内根据新观测创建、跟进 Task。</td><td>目标是否持续达标。某个 Task 完成后，目标继续生效。</td><td>目标、事件来源、指标观测、运行预算和人工审批。</td></tr>
 </tbody>
 </table>
 </div>
-<div class="recommend"><h3>建议先做 B1</h3><p>保留现有三列。Agent 提交后，卡片在「处理中」显示「待验收」。处理人可以用「待我验收」直接打开交付证据。退回时保留理由和前一版证据。处理人通过后，需求进入「已完成」。</p><p>独立 Inbox 等到 Kanban 之外也出现由同一批人处理的审批再评估。B3 的 CI 事件属于执行触发，后续可以接入 Durable Inbox。</p></div>
+<div class="recommend"><h3>现阶段推荐 B1</h3><p>Rook 已经接收反馈并创建 Task。此时用户最缺的动作是把已明确的 Task 委派给 Agent，然后直接在原需求里验收。B1 只给现有流程补上这段。</p><p>如果用户通常先在 Chat 里弄清问题，再把少数事项交给团队，首选 B2。如果用户想让 Agent 承担一段时间内的持续责任，再选 B3。</p><p>独立 Inbox 在三版里的价值不同。B1 用 Kanban 的「待我验收」。B2 的决策留在当前 Chat。B3 若同时管理多个目标，跨目标的人工审批才有理由集中到独立 Inbox。</p></div>
 </section>
 </main>
 <script>
-const data = {
-  b1: {
-    title: 'B1 · 从卡片发起', lead: '处理人控制开工，Agent 推进到交付。',
-    benefit: '需求、Run 和交付证据都能从同一张卡片打开。处理人可以直接通过或退回。',
-    cost: '每条需求需要处理人点一次「让 Agent 开工」。',
-    source: '<a href="https://multica.ai/docs/assigning-issues">Multica 分派</a> · <a href="https://github.com/block/buzz-app/blob/main/docs/channels.md">Buzz 共享 thread</a>',
-    steps: {open: ['让 Agent 开工','running'], running: ['模拟 Agent 提交证据','review']}
+const variants = {
+  task: {
+    title:'B1 · 委派需求',
+    route:'反馈移交 → Kanban → 需求详情',
+    reason:'Multica 把 Agent 分派到已经存在的需求，并把进展和结果写回同一条需求。',
+    source:'<a href="https://multica.ai/docs/assigning-issues">Multica Agent 分派</a>',
+    steps:[
+      ['Kanban / 需求详情','修复自动化任务失败提醒','待处理 · 处理人 林','这张卡片从反馈移交创建。林确认验收条件为「超时和重试失败均发出提醒」。','委派给 Agent'],
+      ['Kanban / 需求详情','修复自动化任务失败提醒','待验收 · 最近 Run #1','Agent 提交模拟 PR #248。超时、重试两项回归均通过。林在原 Task 上查看证据。','通过验收'],
+      ['Kanban / 需求详情','修复自动化任务失败提醒','已完成 · 林通过验收','Rook 在 Task 上保存交付证据和验收结果。','']
+    ],
+    finish:'林验收的是这一次修复。这条 Task 已完成。'
   },
-  b2: {
-    title: 'B2 · 有容量再开工', lead: '处理人确认需求可开工。Agent 按容量领取。',
-    benefit: '待验收也占用容量。积压时，下一条需求在队列里显示等待原因。',
-    cost: 'Rook 需要维护队列和领取规则。示例的 WIP 上限 2 仅用于演示。',
-    source: '<a href="https://kanbanguides.org/the-kanban-guide/2025.5/">The Kanban Guide · WIP 与拉取</a> · <a href="https://linear.app/docs/triage">Linear Triage</a>',
-    steps: {open: ['标为可开工','queued'], queued: ['模拟处理人验收另一条需求','available'], available: ['模拟 Agent 领取','running'], running: ['模拟 Agent 提交证据','review']}
+  chat: {
+    title:'B2 · Chat 协作',
+    route:'Chat → 人与 Agent 排查 → 选择剩余事项',
+    reason:'Buzz 把人与 Agent 的讨论保留在同一个 thread。应用到 Rook，人的判断和 Agent 的调查都留在 Chat，需要交给团队的事项再进入 Kanban。',
+    source:'<a href="https://github.com/block/buzz-app/blob/main/docs/channels.md">Buzz 频道与 thread</a>',
+    steps:[
+      ['Chat / 排查失败提醒','为什么失败后没收到提醒？','林问 Agent','「帮我看两次失败提醒遗漏是不是同一个原因。」林先在 Chat 里和 Agent 排查。','查看 Agent 排查结果'],
+      ['Chat / 排查失败提醒','已找到两种原因','Agent 回复','一次提醒被用户静默，Agent 已解释；另一次重试路径确实漏发。Agent 建议把漏发问题交给通知维护者。','选择「修复重试路径漏发」'],
+      ['Chat / 创建需求','修复重试路径漏发','交接预览 · 通知维护者','Rook 从 Chat 带入复现条件和授权来源链接。林可以确认标题和处理人。','确认加入 Kanban'],
+      ['Chat / 排查失败提醒','团队跟进项已创建','已关联 Task RK-57','静默问题的结论留在 Chat。通知维护者可以从新 Task 查看漏发问题。','']
+    ],
+    finish:'林确认的是哪件事要交给团队。新 Task 仍待处理。'
   },
-  b3: {
-    title: 'B3 · 等事件继续', lead: 'Agent 等待已登记的 CI 结果，并在需要时继续。',
-    benefit: 'CI 失败后，Agent 带着检查结果继续同一条需求。处理人最后只验收交付。',
-    cost: 'Rook 需要把事件绑定到这条需求，并处理权限、重复事件和重试。',
-    source: '<a href="https://github.com/pingdotgg/t3code/blob/main/docs/user/source-control.md">T3 Code · PR 跟进</a> · <a href="https://multica.ai/docs/issue-wakeups">Multica · 唤醒规则</a>',
-    steps: {open: ['让 Agent 开工','running'], running: ['模拟 Agent 提交 PR 并等待 CI','waiting'], waiting: ['模拟 CI 失败','failed'], failed: ['模拟 Agent 修复并通过 CI','review']}
+  goal: {
+    title:'B3 · 托管目标',
+    route:'SuperAgent → 授权目标 → 按观测推进',
+    reason:'Multica 可以按条件唤醒已有需求。这一版进一步用 Rook 规划中的 SuperAgent 持续跟进目标，由 Agent 根据新观测决定是否创建需求。',
+    source:'<a href="https://multica.ai/docs/issue-wakeups">Multica 唤醒规则</a>',
+    steps:[
+      ['SuperAgent / 新目标','连续 7 天核对失败提醒','等待授权 · 范围：指定任务组','每天核对失败事件和提醒记录。发现漏发时创建 Task 并提交修复建议。发布仍由林批准。','授权托管 7 天'],
+      ['SuperAgent / 目标记录','连续 7 天核对失败提醒','第 2 天 · 发现漏发','Agent 匹配到一条缺少提醒的失败事件，创建 Task RK-61 并提交模拟修复证据。','批准发布并查看后续观测'],
+      ['SuperAgent / 目标记录','连续 7 天核对失败提醒','第 3 天 · 目标仍在运行','Task RK-61 已完成。Agent 在后续观测中核对新的失败事件是否产生提醒。','查看第 7 天结果'],
+      ['SuperAgent / 目标记录','连续 7 天核对失败提醒','托管到期 · 等待结果确认','模拟结果显示修复后未发现新漏发。林可以结束本轮托管。','确认结果并结束托管'],
+      ['SuperAgent / 目标记录','连续 7 天核对失败提醒','托管已结束','Rook 保存每次观测和生成的 Task。','']
+    ],
+    finish:'林验收的是七天托管结果。修复 Task 只是目标期间的一次交付。'
   }
 };
 
-const models = {
-  open: ['待处理','处理人 · 林','核对交接目标后启动 Agent。'],
-  queued: ['等待容量','验收人 · 林','已有两条需求在制，其中一条待验收。'],
-  available: ['可开工','验收人 · 林','另一条需求已完成。Agent 可以领取这条需求。'],
-  running: ['处理中','最近 Run · #1','Agent 正在复现失败提醒遗漏。'],
-  waiting: ['等待 CI','最近 Run · #1','Agent 已提交模拟 PR #248，等待回归检查。'],
-  failed: ['处理中','最近 Run · #2','CI 报出重试场景失败。Agent 已继续处理。'],
-  review: ['待验收','验收人 · 林','交付证据已提交。处理人可以通过或退回。'],
-  returned: ['已退回','处理人 · 林','退回理由：请补充连续两次失败的回归证据。'],
-  revision: ['处理中','Agent 正在补充证据','Agent 保留前一版证据，并补充处理人要求的场景。'],
-  done: ['已完成','已由林通过验收','交付证据和验收记录已保留在需求详情。']
-};
-let variant = 'b1';
-let status = 'open';
-let history = [];
-let revised = false;
-let onlyReview = false;
-const prototype = document.getElementById('prototype');
-const tabs = [...document.querySelectorAll('[data-variant]')];
-const task = '修复自动化任务失败提醒';
+let model = 'task';
+let step = 0;
+const demo = document.getElementById('demo');
+const buttons = [...document.querySelectorAll('[data-model]')];
 
-function badge(label, style = '') {
-  return '<span class="state '+ style +'">'+ label +'</span>';
+function context() {
+  if(model==='task') {
+    return '<h3>Kanban</h3><div class="board context">'+['待处理','处理中','已完成'].map((lane,index)=>
+      '<section class="lane"><h3>'+lane+'</h3>'+(index===step?'<div class="card selected">RK-42 · 修复失败提醒</div>':'')+'</section>').join('')+'</div>';
+  }
+  if(model==='chat') {
+    return '<h3>Chat 里的调查</h3><div class="context"><div class="chat"><span class="meta">林</span><p>两次失败提醒遗漏是同一个原因吗？</p></div>'
+      +(step>0?'<div class="chat"><span class="meta">Agent</span><p>静默符合预期。重试路径漏发需要通知维护者处理。</p></div>':'')
+      +(step===3?'<div class="row"><span>已创建需求</span><strong>RK-57 · 待处理</strong></div>':'')+'</div>';
+  }
+  const day = [0,2,3,7,7][step];
+  return '<h3>目标的观测和需求</h3><div class="context"><p class="meta">已观测 '+day+' / 7 天</p><progress aria-label="观测天数" max="7" value="'+day+'"></progress>'
+    +(step>0?'<div class="row"><span>RK-61 · 修复漏发</span><strong>'+(step===1?'待批准发布':'已完成')+'</strong></div>':'')+'</div>';
 }
-function kanban() {
-  const column = status === 'open' ? 0 : status === 'done' ? 2 : 1;
-  const filter = '<div class="board-filter"><button type="button" class="secondary" id="review-filter" aria-pressed="'+onlyReview+'">待我验收 · '+(status === 'review' ? '1' : '0')+'</button></div>';
-  if(onlyReview && status !== 'review') return filter + '<p class="meta">暂无待我验收的需求</p>';
-  return filter + '<div class="board">' + ['待处理','处理中','已完成'].map((name,i) =>
-    '<section class="lane"><h3>'+ name +'</h3>' + (i === column
-      ? '<div class="card selected"><div class="meta">RK-42 · 反馈移交</div><strong>'+ task +'</strong><p class="meta">'+ models[status][0] +'</p></div>'
-      : '<div class="meta">暂无需求</div>') + '</section>').join('') + '</div>';
+
+function render(focus) {
+  const selected = variants[model];
+  const [where,title,state,description,action] = selected.steps[step];
+  demo.innerHTML =
+    '<div class="toolbar"><div><h2>'+selected.title+'</h2><p class="route">'+selected.route+'</p></div><button type="button" class="reset" id="reset">重置示例</button></div>'
+    +'<div class="stage"><section class="workspace"><p class="eyebrow">'+where+'</p><h3>'+title+'</h3><div class="chat"><span class="state">'+state+'</span><p>'+description+'</p></div>'
+    +(action?'<button type="button" class="primary" id="action">'+action+'</button>':'<p class="finish" id="finish" tabindex="-1">'+selected.finish+'</p>')+'</section>'
+    +'<section class="detail">'+context()+'<h3>过程记录</h3><ol class="list">'+selected.steps.slice(0,step+1).map(item=>'<li>'+item[2]+'</li>').join('')+'</ol></section></div>'
+    +'<div class="notes"><div><h3>参考实践</h3><p>'+selected.reason+' '+selected.source+'</p></div><p>这是交互原型。需求、Run、PR 和连续观测均为模拟数据。</p></div>';
+  document.getElementById('reset').onclick = () => {step=0; render('reset');};
+  const next = document.getElementById('action');
+  if(next) next.onclick = () => {step++; render('action');};
+  if(focus) (document.getElementById(focus) || document.getElementById('finish')).focus();
 }
-function queue() {
-  const backlog = ['open','queued','available'].includes(status);
-  const occupied = status === 'open' || status === 'queued' ? 2 : status === 'available' || status === 'done' ? 1 : 2;
-  return '<h3>按验收人查看 · 林</h3><p class="meta">在制 '+ occupied +' / 2</p><div class="rows">'
-    + '<div class="row selected"><span>RK-42 · '+ task +'</span>'+badge(models[status][0], status === 'queued' ? 'wait' : '')+'</div>'
-    + '<div class="row"><span>RK-38 · 补齐发布回归</span>'+badge(occupied === 1 || !backlog ? '已完成' : '待验收','muted')+'</div>'
-    + '<div class="row"><span>RK-39 · 调整通知模板</span>'+badge('处理中','muted')+'</div></div>';
-}
-function timeline() {
-  const events = [['反馈已移交','open']];
-  const progress = new Set([status,...history.map(item => item.state)]);
-  if(progress.has('running')) events.push(['Agent 开始 Run #1','running']);
-  if(progress.has('waiting')) events.push(['模拟 PR #248 · 等待回归检查','waiting']);
-  if(progress.has('failed')) events.push(['CI 失败 · Agent 开始 Run #2','failed']);
-  if(progress.has('review')) events.push(['CI 通过 · Agent 提交证据','review']);
-  if(progress.has('done')) events.push(['林通过验收','done']);
-  return '<h3>RK-42 · PR 跟进</h3><ul class="list">'+events.map(([event,state])=>'<li class="row"><span>'+event+'</span>'+(status===state?badge('当前'):'')+'</li>').join('')+'</ul>';
-}
-function render(focusId) {
-  const v = data[variant];
-  const [label, actor, details] = models[status];
-  const common = {review:['通过验收','done'], returned:['让 Agent 补充证据','revision'], revision:['模拟 Agent 重新交付','review']};
-  const step = common[status] || v.steps[status];
-  const showDetail = variant !== 'b1' || !onlyReview || status === 'review';
-  prototype.innerHTML = '<div class="toolbar"><div><h2>'+ v.title +'</h2><p class="meta">'+v.lead+'</p></div><button class="reset" id="reset" type="button">重置示例</button></div>'
-    +'<div class="stage"><section class="workspace" aria-label="需求视图">'+({b1:kanban,b2:queue,b3:timeline}[variant]())+'</section>'
-    +(showDetail?'<section class="detail" aria-label="需求详情"><p class="eyebrow">RK-42 · 反馈移交</p><h3>'+task+'</h3>'
-    +'<p>'+badge(label,['queued','waiting','review','returned'].includes(status)?'wait':'')+'</p>'
-    +'<p class="meta">'+actor+'</p><p>'+details+'</p>'
-    +(['review','revision','returned','done'].includes(status)?'<details><summary>查看交付证据</summary><ul><li>模拟 PR #248 · 修复失败提醒遗漏</li><li>回归用例 · 超时与重试均通过</li>'+(revised?'<li>新增回归用例 · 连续两次失败均产生提醒</li>':'')+'</ul></details>':'')
-    +(step?'<button id="next" type="button" class="primary">'+step[0]+'</button>':'')
-    +(status==='review'?'<button id="return" type="button" class="secondary">退回并要求补证据</button>':'')
-    +(history.length?'<details class="activity"><summary>活动记录</summary><ul>'+history.map(item=>'<li>'+item.text+'</li>').join('')+'</ul></details>':'')
-    +'</section>':'<section class="detail" aria-label="需求详情"></section>')+'</div><div class="notes"><div><h3>解决什么问题</h3><p>'+v.benefit+'</p></div><div><h3>实现代价</h3><p>'+v.cost+'</p></div></div>'
-    +'<p class="notice">原型使用模拟需求、Run 和 PR。参考 '+v.source+'</p>';
-  document.getElementById('reset').onclick = () => reset('reset');
-  const filter = document.getElementById('review-filter');
-  if(filter) filter.onclick = () => {
-    onlyReview = !onlyReview;
-    render('review-filter');
-  };
-  if(showDetail && step) document.getElementById('next').onclick = () => advance(step[1],step[0]);
-  if(status==='review') document.getElementById('return').onclick = () => advance('returned','林退回交付，要求补充连续两次失败的证据');
-  if(focusId) (document.getElementById(focusId) || document.getElementById('reset')).focus();
-}
-function advance(next, text) {
-  if(status === 'revision') revised = true;
-  status = next;
-  history.push({state:next,text});
-  render('next');
-}
-function reset(focusId) {
-  status = 'open';
-  history = [];
-  revised = false;
-  onlyReview = false;
-  render(focusId);
-}
-for(const tab of tabs) {
-  tab.onclick = () => {
-    variant = tab.dataset.variant;
-    for(const other of tabs) other.setAttribute('aria-pressed', String(other === tab));
-    reset();
+for(const button of buttons) {
+  button.onclick = () => {
+    model=button.dataset.model;
+    step=0;
+    for(const option of buttons) option.setAttribute('aria-pressed', String(option===button));
+    render();
   };
 }
 render();
