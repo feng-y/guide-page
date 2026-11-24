@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rook · Task 协作实施设计</title>
+<style>
+:root{font-family:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;color:#202b25;background:#f5f6f2;--line:#d9e1d8;--green:#175b43;--muted:#505c55}
+*{box-sizing:border-box}body{margin:0}main{max-width:1000px;padding:40px 24px 55px;margin:auto}header{max-width:760px}a{color:var(--green);text-underline-offset:3px}a:focus-visible{outline:2px solid var(--green);outline-offset:3px}.brand{font-size:14px;font-weight:700}.intro,.quiet{color:var(--muted)}h1{font-size:clamp(31px,5.7vw,54px);letter-spacing:-.035em;line-height:1.15;margin:40px 0 12px}h2{font-size:25px;margin:0 0 12px}h3{font-size:16px;margin:0 0 7px}p,li{line-height:1.65}p{margin:0 0 12px}li{margin-bottom:6px}section{margin-top:30px;scroll-margin-top:14px}nav{display:flex;flex-wrap:wrap;gap:7px;margin-top:22px}nav a{border:1px solid var(--line);background:#fff;border-radius:7px;padding:7px 11px;text-decoration:none}.grid{display:grid;grid-template-columns:minmax(240px,.85fr) minmax(0,1.15fr);gap:12px}.panel{background:white;border:1px solid var(--line);border-radius:11px;padding:16px}.row{padding:8px 0;border-bottom:1px solid var(--line)}.row:last-child{border-bottom:0}.chip{display:inline-block;font-size:13px;border-radius:5px;margin:0 4px 6px 0;padding:3px 7px;background:#e5efe8;color:var(--green)}.chip.wait{background:#faedda;color:#654210}.wide{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:14px;background:#fff}th,td{text-align:left;padding:10px 12px;vertical-align:top;border:1px solid var(--line);line-height:1.5}thead{background:#e9eee8}code{border-radius:4px;background:#ebefea;padding:2px 4px;overflow-wrap:anywhere}footer{margin-top:35px;padding-top:16px;border-top:1px solid var(--line);font-size:13px}.note{background:#e7f1ea;border-radius:9px;padding:13px 15px}ol,ul{padding-left:24px;margin:8px 0}
+@media(max-width:660px){main{padding:24px 14px 35px}.grid{grid-template-columns:1fr}h1{margin-top:28px}th,td{padding:8px}}
+</style>
+</head>
+<body><main>
+<header>
+<p class="brand">Rook / Kanban</p>
+<h1>一条 Task，RD 和 Agent 一起推进</h1>
+<p class="intro">Rook 保存承接人、状态、双方消息和交付证据。RD 和 Agent 在原有开发环境工作。开发 Agent 用 <code>rook-chat</code> 读取同一条 Task，回写消息和交付。</p>
+<nav aria-label="目录"><a href="#flow">交互</a><a href="#state">状态与权限</a><a href="#contract">rook-chat 契约</a><a href="#acceptance">落地与验收</a></nav>
+</header>
+
+<section id="flow">
+<h2>从卡片接单到验收</h2>
+<ol>
+<li>一条反馈移交为 Task。卡片展示问题、复现信息和验收条件。RD 可从授权范围内的「可接单」列表接单。自动派发时，外部派发流程把 Task ID 传给已授权的开发 Agent。</li>
+<li>开发 Agent 用 <code>rook-chat</code> 读取 Task。RD 或 Agent 接单成功后，Task 进入「处理中」。RD 已接单时，其授权的开发 Agent 可以协作，承接人仍为 RD。</li>
+<li>Agent 在开发中遇到未定的业务规则，向指定 RD 发问。Kanban 卡片显示「待 RD 回复」。RD 在 Task 详情回复，也可以主动发消息。开发 Agent 再次读取时，只读取游标之后的消息。</li>
+<li>RD 或 Agent 提交 MR 链接、验证结果和仍待确认的事项。卡片显示「待验收」。验收人通过后，Task 进入「已完成」。退回理由写进同一条 Task，承接人据此继续开发。</li>
+</ol>
+<div class="grid" aria-label="Task 详情示意">
+<div class="panel"><h3>RK-57 · 修复重试路径漏发</h3><p><span class="chip">处理中</span><span class="chip wait">待 RD 回复</span></p><div class="row">承接人 · 开发 Agent</div><div class="row">协作 RD · 林</div><div class="row">验收人 · 林</div></div>
+<div class="panel"><h3>Task 消息</h3><div class="row"><strong>开发 Agent → 林</strong><p>最终失败时要发一次提醒，还是每次重试失败都发？</p></div><div class="row"><strong>林 → 开发 Agent</strong><p>最终失败只发一次。重试成功不发。请补两条回归。</p></div><p class="quiet">RD 的回复关联这条提问，卡片清除「待 RD 回复」。</p></div>
+</div>
+</section>
+
+<section id="state">
+<h2>状态与权限</h2>
+<div class="wide"><table>
+<thead><tr><th scope="col">动作</th><th scope="col">Task 状态</th><th scope="col">Rook 保存什么</th></tr></thead>
+<tbody>
+<tr><td>读取或发出派发请求</td><td>待处理</td><td>读取返回当前内容。承接人以成功接单为准。</td></tr>
+<tr><td>RD 或 Agent 接单</td><td>处理中</td><td>记录唯一承接人和时间。旧 revision 返回冲突。</td></tr>
+<tr><td>Agent 提问，RD 回复</td><td>处理中</td><td>提问指定 RD，回复关联原消息。「待 RD 回复」由未回复的提问计算。</td></tr>
+<tr><td>提交交付</td><td>处理中 · 待验收</td><td>保存当前交付版本、MR 和验证证据。</td></tr>
+<tr><td>通过或退回</td><td>通过后已完成。退回后处理中。</td><td>验收人针对当前交付版本操作。退回记录理由，前一版证据仍可查阅。</td></tr>
+</tbody>
+</table></div>
+<ul>
+<li>移交时明确哪些 RD 可以接单。首期可使用 Task 上的小范围授权名单。进入名单只授予该 Task 的访问权限。接单后由当前承接人负责开发，协作 RD 负责回复，验收人负责通过或退回。试点默认协作 RD 和验收人为同一人，可在移交时指定。</li>
+<li>Task 消息按 Task 权限访问。来源 Chat、快照和 MR 分别沿用它们自身的权限。用户可以从来源摘录必要信息到 Task，经确认后供协作者阅读。</li>
+<li>本地 Agent 可在 RD 已授权的身份下协作。无人值守开发 Agent 使用与 Task 绑定的独立授权。Rook 从服务端身份确认作者和操作权限。收到 Agent 接单时，Rook 再核对 Task 和授权是否匹配。</li>
+<li>现有反馈移交和已完成 Task 继续可读。启用协作的 Task 通过专门的接单、交付和验收动作变更状态，旧移列入口也执行同样的校验。</li>
+</ul>
+</section>
+
+<section id="contract">
+<h2>rook-chat 契约</h2>
+<p>以下名称用于评审。Web 和 <code>rook-chat</code> 调用 Rook Backend 的同一套业务操作。</p>
+<div class="wide"><table>
+<thead><tr><th scope="col">操作</th><th scope="col">输入与结果</th></tr></thead>
+<tbody>
+<tr><td>读取 Task</td><td>输入 Task ID。返回标题、目标、复现信息、验收条件、承接人、状态和 revision。可按当前身份列出可接单 Task。</td></tr>
+<tr><td>接单</td><td>输入 Task ID、revision、requestId。Rook 在一个事务内校验权限、确认唯一承接人、推进状态。</td></tr>
+<tr><td>读取和追加消息</td><td>读取可带 cursor，返回增量消息及下一游标。写入带 requestId。需要 RD 回复时，指定已获授权的 RD。回复通过 replyTo 关联原提问。</td></tr>
+<tr><td>提交交付</td><td>输入 Task ID、当前 revision、MR、验证摘要和 requestId。Rook 保存一版交付并标记「待验收」。</td></tr>
+<tr><td>验收</td><td>验收人在 Web 针对当前交付版本通过或退回。退回时填写原因。</td></tr>
+</tbody>
+</table></div>
+<p class="note">同一个 requestId 重试同一写入返回原结果。接单冲突时先重读 Task，未接单的一方停止开工，后续读取仍按 Task 权限校验。RD 回复时保存消息。外部 Agent 何时恢复执行由它的开发流程决定。</p>
+</section>
+
+<section id="acceptance">
+<h2>落地与验收</h2>
+<ol>
+<li><strong>打通授权读取和 RD 主动接单。</strong> 扩展现有 Kanban 权限和接单规则。让真实 RD 用 <code>rook-chat</code> 读取一条反馈 Task。用两份开发环境同时接单验证只有一方成功。</li>
+<li><strong>打通 Task 消息与真实交付。</strong> Agent 发问，RD 从 Kanban 回复，Agent 按游标读到回复并提交 MR。RD 退回一次再通过。重复发送、断开后按游标补读和其他用户越权分别验证。</li>
+<li><strong>接入现有自动派发。</strong> 先确认可用的外部派发入口，再用它传 Task ID 给已授权 Agent。验证 RD 主动接单和自动接单同时到达、派发重试、授权撤销时的结果。</li>
+</ol>
+<p>Kanban 用「可接单」找新需求，用「待我处理」找待回复和待验收。跨入口的人工决策出现后再评估独立 Inbox。</p>
+</section>
+<footer>实现参考 <a href="https://github.com/graywrk/agent-kanban/blob/main/src/agent_kanban/mcp_server.py">Agent Kanban 的读取、领取和评论</a> · <a href="https://github.com/chuspeeism/dashi-taskboard/blob/main/skills/manage-taskboard/SKILL.md">Dashi 的 Skill、版本校验和验收</a> · <a href="https://github.com/block/buzz-app/blob/main/docs/channels.md">Buzz 的共享对话</a></footer>
+</main></body></html>
