@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rook · rook-chat 拉取与派发设计</title>
+<style>
+:root{font-family:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;color:#242623;background:#f4f5f1;--line:#dce1d8;--muted:#555f57;--accent:#175b43;--tint:#e8f2eb}
+*{box-sizing:border-box}body{margin:0}a{color:var(--accent);text-underline-offset:3px}button{font:inherit;cursor:pointer}button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #2e805f;outline-offset:3px}button:disabled{cursor:default;opacity:.65}
+main{max-width:1140px;margin:auto;padding:36px 24px 60px}.mast{display:flex;justify-content:space-between;gap:12px;align-items:center;font-size:14px}.brand{font-weight:750}.eyebrow,.meta{color:var(--muted);font-size:13px}h1{font-size:clamp(32px,5vw,60px);line-height:1.1;margin:50px 0 14px;letter-spacing:-.04em}h2{font-size:24px;margin:0 0 7px}h3{font-size:16px;margin:0 0 8px}p{line-height:1.65;margin:0 0 12px}.intro{max-width:720px;color:var(--muted)}nav{display:flex;flex-wrap:wrap;gap:8px;margin:27px 0 16px}nav button,.reset,.secondary{background:#fff;color:#27332c;border:1px solid var(--line);border-radius:8px;padding:9px 13px}nav button[aria-pressed=true]{background:#24382e;color:#fff;border-color:#24382e}.frame{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 22px;border-bottom:1px solid var(--line)}.toolbar p{margin:0}.stage{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(290px,1fr);min-height:345px}.workspace{background:#f6f8f5;padding:20px;border-right:1px solid var(--line)}.detail{padding:22px}.board-filter{display:flex;gap:8px;margin-bottom:10px}.board-filter button{padding:5px 8px;font-size:12px}.board-filter button[aria-pressed=true]{border-color:#82a697;background:var(--tint);color:var(--accent)}.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.lane{background:#ebeeea;border-radius:8px;padding:9px;min-height:190px}.lane h3{font-size:13px;margin-bottom:12px}.card,.row{background:white;border:1px solid var(--line);border-radius:8px;padding:11px;font-size:14px;overflow-wrap:anywhere}.selected{border-color:#82a697}.card .meta{font-size:11px;margin-bottom:5px}.rows{display:grid;gap:8px}.row{display:flex;justify-content:space-between;align-items:center;gap:10px}.row span:last-child{text-align:right}.state{display:inline-block;padding:3px 7px;border-radius:5px;background:var(--tint);color:var(--accent);font-size:12px;line-height:1.4}.state.wait{background:#f8ead3;color:#70410c}.state.muted{background:#edf0ec;color:#505b53}.list{list-style:none;margin:0;padding:0}.list li{padding:10px 0;border-bottom:1px solid var(--line)}.list li:last-child{border-bottom:0}.detail .primary,.detail .secondary{margin:8px 6px 0 0}.primary{border:1px solid var(--accent);border-radius:8px;padding:9px 13px;background:var(--accent);color:#fff}.activity{margin-top:17px}.activity summary{cursor:pointer;color:var(--accent);font-size:14px}.activity ul{font-size:13px;padding-left:19px}.notes{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:17px 22px;border-top:1px solid var(--line)}.notes p{font-size:14px;margin:0;color:var(--muted)}.decision{margin-top:33px}.overflow{overflow-x:auto}table{border-collapse:collapse;width:100%;margin:12px 0 18px;background:#fff;font-size:14px}th,td{text-align:left;padding:12px;border:1px solid var(--line);vertical-align:top}thead{background:#e9eee8}.recommend{padding:16px 20px;background:var(--tint);border-radius:8px}.recommend p:last-child,.detail p:last-child{margin-bottom:0}.source{font-size:13px}.notice{padding:14px 22px;border-top:1px solid var(--line);font-size:13px;color:var(--muted);margin:0}
+@media(max-width:720px){main{padding:23px 15px 36px}.stage{grid-template-columns:1fr}.workspace{border-right:0;border-bottom:1px solid var(--line);padding:12px}.lane{min-height:140px}.detail,.toolbar,.notes{padding:15px}.notes{gap:12px;grid-template-columns:1fr}.card{padding:8px}.toolbar{align-items:flex-start}.mast{font-size:12px}h1{margin-top:32px}}
+</style>
+<style>
+.workflow .row{margin:0 0 7px}.workflow .row[aria-current=step]{border-color:var(--accent);background:var(--tint)}.workflow .row span:last-child{font-size:12px}.action-group{display:flex;flex-wrap:wrap;gap:7px;margin-top:16px}.action-group button{margin:0!important}.stage{min-height:310px}.toolbar .state{margin-left:8px}.detail h3{font-size:20px}
+</style>
+</head>
+<body>
+<main>
+<div class="mast"><span class="brand">Rook / Kanban</span><a href="../agent/">Agent 交付设计</a></div>
+<h1>rook-chat 拉取与派发</h1>
+<p class="intro">用同一条已确认的 Task「修复重试路径漏发」演示三种派发方式。开发 Agent 都通过 <code>rook-chat</code> 读取 Task。区别在于谁选择执行者、谁触发开工，以及开发环境离线时谁负责处理。</p>
+<nav aria-label="选择方案">
+<button type="button" data-mode="manual" aria-pressed="true">方案一 · RD 手动派发</button>
+<button type="button" data-mode="pull" aria-pressed="false">方案二 · 开发环境自动领取</button>
+<button type="button" data-mode="push" aria-pressed="false">方案三 · Rook 主动派发</button>
+</nav>
+<div class="frame" id="demo"></div>
+<section class="decision">
+<h2>三种派发方式怎么选</h2>
+<div class="overflow">
+<table>
+<thead><tr><th scope="col">方案</th><th scope="col">选择 Task 和开发环境</th><th scope="col">离线和失败</th><th scope="col">最低实现依赖</th></tr></thead>
+<tbody>
+<tr><th scope="row">一 · RD 手动派发</th><td>RD 在自己的开发环境打开 Agent，把指定 Task ID 交给它。</td><td>Task 留在「待处理」，等 RD 有空接单。</td><td>rook-chat 按 ID 读取授权 Task；沿用 Kanban 的接单操作。</td></tr>
+<tr><th scope="row">二 · 开发环境自动领取</th><td>RD 预先授权一个开发环境。该环境空闲时，主动领取已分配给 RD 且允许自动开发的 Task。</td><td>开发环境恢复空闲后再拉取。多个环境抢到同一条时，Rook 只给一个环境领取权。</td><td>开发环境的领取进程、可领取列表、带版本校验的领取和接单确认。</td></tr>
+<tr><th scope="row">三 · Rook 主动派发</th><td>Rook 根据 Project 路由选择已登记的开发环境，并向它投递 Task ID 和派发标识。</td><td>Rook 记录等待接单、超时和失败。重投使用同一派发标识，到期后交人工处理。</td><td>Project 路由、接收端登记、持久化派发记录和接单确认。</td></tr>
+</tbody>
+</table>
+</div>
+<div class="recommend">
+<h3>推荐先做方案一</h3>
+<p>先验证 RD 只拿到 Task ID，能否用 rook-chat 读到足够开工的信息，并把 MR 和验证结果提交给验收人。三个方案共用这个读取契约，自动化只改变 Task ID 怎么到达开发 Agent。</p>
+<p>如果主要想省掉 RD 每次复制 Task ID，且开发环境有空时可以自己接单，选方案二。如果团队要按 Project 把需求发到指定的开发环境，并集中查询每次派发结果，选方案三。</p>
+</div>
+</section>
+<section class="decision">
+<h2>共用的读取和状态规则</h2>
+<ul>
+<li>Task 包含目标、范围、复现信息、验收条件、所属 Project 和当前 revision。来源 Chat 仍按原权限访问。</li>
+<li>rook-chat 使用当前授权身份读取 Task。读取只返回内容。接单确认让 Task 进入「处理中」。自动派发还需提前授权 Project、开发环境和可自动领取的任务范围。</li>
+<li>方案二由 Rook 原子确认单一领取者。方案三由接收端按派发标识去重。接单状态不明时先核对是否已启动，再决定是否释放领取或重投。</li>
+<li>首期 RD 从卡片提交 MR 和验证结果。验收人通过后，Task 进入「已完成」。</li>
+</ul>
+<p class="source">现有 rook-chat 支持 Chat 和 Run。现有 Kanban 已有 Task 详情和带 revision 的状态更新。本原型的 Task 拉取和自动派发是待实现设计。</p>
+</section>
+</main>
+<script>
+const modes = {
+  manual: {
+    title:'方案一 · RD 手动派发',
+    trigger:'RD 决定什么时候开工',
+    steps:[
+      ['已确认','待处理','林把 RK-57 指定给 RD。RD 选择自己的开发环境，并把 Task ID 交给开发 Agent。','把 RK-57 交给开发 Agent'],
+      ['rook-chat 拉取','待处理','开发 Agent 以 RD 的身份读取 RK-57，展示范围和验收条件。RD 确认本次开工。','确认接单'],
+      ['开始开发','处理中','开发 Agent 在 RD 选定的环境中工作。RD 可以从同一张卡片提交 MR 和验证结果。','']
+    ],
+    end:'RD 选择开发环境，也确认开工。Rook 保留接单后的 Task 状态。'
+  },
+  pull: {
+    title:'方案二 · 开发环境自动领取',
+    trigger:'开发环境有空闲容量时领取',
+    steps:[
+      ['环境忙碌','待处理','RK-57 已分配给 RD，并获准自动领取。开发环境正在处理另一条 Task。','模拟开发环境空闲'],
+      ['轮询并领取','待处理','开发环境查询获准领取的 Task，向 Rook 申请 RK-57。Rook 按 revision 确认唯一领取者。','模拟领取成功'],
+      ['rook-chat 拉取','待处理','获准领取的开发 Agent 重新读取 RK-57，确认自己仍有权限，并报告准备就绪。','模拟接单确认'],
+      ['开始开发','处理中','当前开发环境启动工作。其他环境看到领取结果后跳过 RK-57。','']
+    ],
+    failure:'另一个开发环境已经成功领取。这里停止启动，Task 由已领取的环境继续。',
+    failAt:1, failLabel:'模拟被其他环境抢先领取',
+    end:'开发环境决定何时拉取。Rook 保证同一条 Task 只有一个领取者。'
+  },
+  push: {
+    title:'方案三 · Rook 主动派发',
+    trigger:'Rook 收到确认交接后派发',
+    steps:[
+      ['确认交接','待处理','RK-57 已获准自动派发。Rook 按 Project 路由选择已登记且有授权的开发环境。','投递 Task ID'],
+      ['等待接单','待处理','Rook 发送 Task ID 和派发标识。接收端保存派发标识，以便对重复投递去重。','模拟接收端拉取'],
+      ['rook-chat 拉取','待处理','接收端启用开发 Agent。开发 Agent 以授权身份读取 RK-57，再向 Rook 确认接单。','模拟接单确认'],
+      ['开始开发','处理中','Rook 在卡片记录接单的开发环境和时间。RD 后续从原卡片交付。','']
+    ],
+    failure:'接收端未在时限内确认。Rook 保留派发记录，先核对接单结果。确认未启动后，可用同一派发标识重投或转人工。',
+    failAt:1, failLabel:'模拟接单超时',
+    end:'Rook 选择目标并追踪投递。接收端仍通过 rook-chat 读取 Task。'
+  }
+};
+let mode='manual';
+let index=0;
+let failed=false;
+const demo=document.getElementById('demo');
+const buttons=[...document.querySelectorAll('[data-mode]')];
+function render(focus) {
+  const plan=modes[mode];
+  const [name,state,story,next]=plan.steps[index];
+  const fail=plan.failAt===index;
+  demo.innerHTML='<div class="toolbar"><div><h2>'+plan.title+'</h2><p class="meta">'+plan.trigger+'</p></div><button type="button" class="reset" id="reset">重置示例</button></div>'
+    +'<div class="stage"><section class="workspace workflow"><h3>派发步骤</h3>'+plan.steps.map(([label,taskState],i)=>'<div class="row" '+(i===index?'aria-current="step"':'')+'><strong>'+label+'</strong><span>'+taskState+'</span></div>').join('')+'</section>'
+    +'<section class="detail"><p class="eyebrow">RK-57 · 修复重试路径漏发</p><h3 id="result" tabindex="-1">'+(failed?'派发分支':name)+'</h3><p>'+ (failed?plan.failure:story) +'</p>'
+    +(failed||!next?'<p class="state">'+(failed?'当前环境未开工':plan.end)+'</p>':'<div class="action-group"><button type="button" id="next" class="primary">'+next+'</button>'+(fail?'<button type="button" id="fail" class="secondary">'+plan.failLabel+'</button>':'')+'</div>')
+    +'</section></div><p class="notice">交互原型。Task、开发环境与派发结果均使用模拟数据。</p>';
+  document.getElementById('reset').onclick=()=>{index=0;failed=false;render('reset');};
+  if(next&&!failed) document.getElementById('next').onclick=()=>{index++;render('next');};
+  if(fail&&!failed) document.getElementById('fail').onclick=()=>{failed=true;render('result');};
+  if(focus) (document.getElementById(focus)||document.getElementById('result')).focus();
+}
+for(const button of buttons) {
+  button.onclick=()=>{
+    mode=button.dataset.mode;
+    index=0;
+    failed=false;
+    for(const other of buttons) other.setAttribute('aria-pressed',String(other===button));
+    render();
+  };
+}
+render();
+</script>
+</body>
+</html>
