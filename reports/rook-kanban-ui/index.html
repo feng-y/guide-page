@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rook Kanban · UI 原型</title>
+<style>
+:root { color-scheme:light; font-family:Inter,-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif; color:#252934; background:#fbfcfe; --muted:#606b7c; --line:#e4e8ef; --blue:#2b57b6; --panel:#f1f4f8; }
+* { box-sizing:border-box; } [hidden] { display:none!important; }
+body { margin:0; min-width:320px; }
+button,input,select,textarea { font:inherit; color:inherit; }
+button,input,select,textarea { border:1px solid var(--line); border-radius:8px; background:white; }
+button { cursor:pointer; } button:disabled { cursor:default; opacity:.55; }
+button:hover:not(:disabled) { border-color:#aebabd; }
+:focus-visible { outline:2px solid #315fc5; outline-offset:3px; }
+a { color:var(--blue); text-underline-offset:3px; }
+h1,h2,h3,p { margin:0; }
+.shell { max-width:1440px; margin:auto; min-height:100dvh; }
+.top { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:60px; padding:0 clamp(16px,4vw,56px); border-bottom:1px solid var(--line); background:white; }
+.brand { display:inline-flex; align-items:center; gap:10px; font-size:18px; letter-spacing:-.4px; color:inherit; text-decoration:none; font-weight:750; }
+.brand-mark { display:grid; place-items:center; width:28px; height:28px; background:#263958; color:white; border-radius:7px; font-size:15px; letter-spacing:0; }
+.prototype { color:var(--muted); font-size:12px; }
+main { padding:30px clamp(16px,4vw,56px) 48px; }
+.board-title { display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 14px; margin-bottom:20px; }
+h1 { font-size:28px; letter-spacing:-.6px; line-height:1.3; }
+.board-title p,.muted { color:var(--muted); font-size:13px; }
+.filters { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+.filters input { flex:1 1 220px; min-width:0; }
+.filters :is(input,select) { padding:8px 10px; min-height:38px; max-width:100%; }
+.columns { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; align-items:stretch; }
+.column { min-width:0; padding:11px; background:var(--panel); border:1px solid #e9edf3; border-radius:11px; }
+.column h2 { display:flex; align-items:center; gap:8px; padding:4px 4px 10px; font-size:14px; font-weight:650; }
+.dot { width:8px; height:8px; border-radius:50%; background:#8592a6; }
+[data-state="处理中"] .dot { background:#4270cb; }
+[data-state="已完成"] .dot { background:#3b7c6e; }
+.count { margin-left:auto; color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; }
+.cards { display:grid; gap:8px; }
+.card { display:grid; gap:6px; padding:11px 12px; text-align:left; text-decoration:none; min-width:0; background:white; color:inherit; border:1px solid var(--line); border-radius:8px; }
+.card:hover { border-color:#a6b9e1; background:#fdfdff; }
+.card-meta,.card-footer { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:baseline; column-gap:8px; row-gap:4px; color:var(--muted); font-size:12px; }
+.card strong { font-size:14px; line-height:1.5; font-weight:650; overflow-wrap:anywhere; }
+.attention { color:#795121; background:#f9f0db; padding:2px 6px; border-radius:4px; }
+.empty { color:var(--muted); padding:16px 4px; text-align:center; font-size:13px; }
+.back { display:inline-block; margin-bottom:22px; font-size:13px; }
+.detail-layout { display:grid; grid-template-columns:minmax(0,1fr) minmax(170px,225px); gap:clamp(18px,4vw,52px); max-width:1040px; margin:auto; align-items:start; }
+.issue { min-width:0; overflow-wrap:anywhere; }
+.issue > h1 { margin:5px 0 14px; }
+.issue > p { line-height:1.75; font-size:14px; }
+.issue-properties { border-inline-start:1px solid var(--line); padding-inline-start:19px; }
+.issue-properties h2,.timeline h2 { font-size:15px; font-weight:650; }
+.issue-properties dl { display:grid; grid-template-columns:auto minmax(0,1fr); gap:11px 14px; font-size:13px; }
+dt { color:var(--muted); } dd { margin:0; }
+.timeline { margin-top:26px; }
+.events { list-style:none; padding:0; margin:9px 0 13px; }
+.events li { padding:10px 0; border-top:1px solid var(--line); }
+.event-meta { display:flex; align-items:center; flex-wrap:wrap; gap:5px 8px; font-size:13px; }
+.event-meta time { margin-left:auto; color:var(--muted); font-size:12px; }
+.avatar { display:grid; place-items:center; width:23px; height:23px; border-radius:50%; font-size:11px; background:#e9eefb; color:#384e86; }
+.delivery .avatar { background:#e9f3ee; color:#346857; }
+.events p { margin:5px 0 0 31px; font-size:13px; line-height:1.6; }
+.delivery-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:7px 0 0 31px; font-size:13px; }
+.quiet,.primary { padding:5px 9px; font-size:13px; } .primary { background:var(--blue); border-color:var(--blue); color:white; }
+.comment { padding:9px; background:white; border:1px solid var(--line); border-radius:9px; }
+.comment textarea { width:100%; padding:6px 7px; resize:vertical; min-height:60px; border:0; }
+.comment-footer { display:flex; justify-content:flex-end; margin-top:4px; }
+.result { color:#336758; }
+dialog { width:min(calc(100% - 32px),440px); border:1px solid var(--line); box-shadow:0 12px 42px #27324822; border-radius:12px; padding:20px; color:inherit; }
+dialog::backdrop { background:#232a3945; }
+dialog header { display:flex; justify-content:space-between; align-items:start; gap:12px; }
+dialog h2 { margin:0 0 9px; font-size:17px; } dialog p { line-height:1.65; }
+@media(max-width:690px) { .columns,.detail-layout { grid-template-columns:1fr; }.issue-properties { border-inline-start:0; border-top:1px solid var(--line); padding:13px 0 0; } }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="top">
+    <a class="brand" href="#kanban"><span class="brand-mark" aria-hidden="true">R</span>Rook</a>
+    <span class="prototype">UI 原型 · 示例数据</span>
+  </header>
+  <main>
+    <section id="board" aria-labelledby="board-title">
+      <header class="board-title"><h1 id="board-title">Kanban</h1><p>默认组需求</p></header>
+      <div class="filters" aria-label="需求筛选">
+        <input id="search" type="search" aria-label="搜索需求" placeholder="搜索 RK 编号或需求内容">
+        <select id="type" aria-label="筛选需求类型"><option value="">全部类型</option><option>功能需求</option><option>Bugfix</option><option>分析</option></select>
+        <select id="business" aria-label="筛选业务标签"><option value="">全部业务</option><option>在线</option><option>样本</option><option>训练</option></select>
+        <select id="attention" aria-label="筛选当前动作"><option value="">全部需求</option><option>可接单</option><option>待我处理</option></select>
+      </div>
+      <div class="columns" id="columns"></div>
+    </section>
+    <section id="detail" aria-label="需求详情" hidden>
+      <a class="back" href="#kanban">← 返回看板</a>
+      <div class="detail-layout">
+        <article class="issue">
+          <div class="muted" id="task-id"></div>
+          <h1 id="task-title" tabindex="-1"></h1>
+          <p id="description"></p>
+          <section class="timeline" aria-labelledby="timeline-title">
+            <h2 id="timeline-title">协作记录</h2>
+            <ol class="events" id="events"></ol>
+            <form class="comment" id="comment">
+              <textarea id="comment-text" aria-label="留言" placeholder="留下评论…" rows="2" required maxlength="1000"></textarea>
+              <div class="comment-footer"><button type="submit" class="primary">发送评论</button></div>
+            </form>
+          </section>
+        </article>
+        <aside class="issue-properties" aria-label="需求属性">
+          <h2>需求属性</h2>
+          <dl id="properties"></dl>
+          <button class="primary" id="claim" hidden>接单</button>
+        </aside>
+      </div>
+    </section>
+  </main>
+</div>
+<dialog id="evidence">
+  <header><h2 id="evidence-title"></h2><form method="dialog"><button class="quiet">关闭</button></form></header>
+  <p id="evidence-body"></p>
+</dialog>
+<script>
+const tasks = [
+  {id:61, title:'给样本导出加预览', state:'待处理', owner:'默认组', type:'功能需求', business:'样本', hint:'可接单', description:'导出前先显示列名和前十行。预览时保留当前筛选条件。'},
+  {id:60, title:'核对在线指标口径', state:'待处理', owner:'默认组', type:'分析', business:'在线', hint:'可接单', description:'用同一时间窗口对照两份指标报表，记录差异来源。'},
+  {id:59, title:'补充在线错误响应说明', state:'待处理', owner:'周宁', type:'功能需求', business:'在线', hint:'可接单', description:'补充调用方能够采取的处理动作，给出正常和错误响应示例。'},
+  {id:57, title:'修复训练任务重试时的重复通知', state:'处理中', owner:'林然', claimant:'林然', reviewer:'我', type:'Bugfix', business:'训练', hint:'2 份交付待验收', description:'一次训练任务可能触发多次重试。最终失败时只发送一次通知，重试成功时不发失败通知。交付需要附上这两种情况的测试结果。', events:[
+    {author:'林然', kind:'接单', time:'09:32', text:'我来排查重试和通知的边界。'},
+    {author:'训练 Agent', kind:'提问', time:'09:40', text:'中途失败但随后重试成功时，也需要发通知吗？'},
+    {author:'周宁', kind:'回复', time:'09:43', text:'只记录在日志里。失败通知只在最终失败时发。'},
+    {author:'林然', kind:'交付 A', time:'10:14', text:'把失败通知移到最终状态回调。', evidence:'两项测试通过。最终失败发送一次通知，重试成功发送零次失败通知。'},
+    {author:'训练 Agent', kind:'交付 B', time:'10:21', text:'保留通知位置，在发送前按任务 ID 和最终状态去重。', evidence:'重复触发时最终只发送一次通知。测试报告同时记录了重试成功的场景。'}
+  ]},
+  {id:55, title:'定位样本回填延迟', state:'处理中', owner:'陈夕', claimant:'样本 Agent', reviewer:'我', type:'分析', business:'样本', hint:'待我回复', description:'对照两批样本的回填时间，确定延迟从哪个阶段开始。', events:[
+    {author:'样本 Agent', kind:'提问', time:'10:05', text:'对照窗口使用最近两批，还是使用最近一个完整小时？'}
+  ]},
+  {id:52, title:'补齐在线接口的失败重试用例', state:'已完成', owner:'周宁', type:'Bugfix', business:'在线', description:'覆盖连接超时和上游主动关闭两种情况。', events:[
+    {author:'周宁', kind:'验收通过', time:'昨天', text:'两种失败场景的测试已通过。'}
+  ]}
+];
+const $ = id => document.getElementById(id);
+const states = ['待处理','处理中','已完成'];
+let current = null;
+let lastCard = null;
+
+function drawBoard() {
+  const query = $('search').value.trim().toLowerCase();
+  const type = $('type').value;
+  const business = $('business').value;
+  const action = $('attention').value;
+  const matches = task => (!query || ('RK-' + task.id + ' ' + task.title + ' ' + task.description).toLowerCase().includes(query)) &&
+    (!type || task.type === type) && (!business || task.business === business) &&
+    (!action || (action === '可接单' ? task.hint === '可接单' : task.reviewer === '我' && !!task.hint));
+  $('columns').innerHTML = states.map(state => {
+    const items = tasks.filter(task => task.state === state && matches(task));
+    return '<section class="column" data-state="' + state + '"><h2><span class="dot" aria-hidden="true"></span>' + state + '<span class="count">' + items.length + '</span></h2><div class="cards">' +
+      (items.map(task => '<a class="card" id="card-' + task.id + '" href="#RK-' + task.id + '"><span class="card-meta"><span>RK-' + task.id +
+      '</span>' + (task.hint ? '<span class="attention">' + task.hint + '</span>' : '') + '</span><strong>' + task.title +
+      '</strong><span class="card-footer">' + task.owner + '</span></a>').join('') || '<p class="empty">暂无需求</p>') + '</div></section>';
+  }).join('');
+}
+
+function drawDetail(task) {
+  current = task;
+  $('task-id').textContent = 'RK-' + task.id;
+  $('task-title').textContent = task.title;
+  $('description').textContent = task.description;
+  $('properties').replaceChildren();
+  for (const [name, value] of [['状态',task.state],['归属',task.owner],['接单人',task.claimant],['验收人',task.reviewer],['需求类型',task.type],['业务标签',task.business]]) {
+    if (!value) continue;
+    const term = document.createElement('dt');
+    const text = document.createElement('dd');
+    term.textContent = name;
+    text.textContent = value;
+    $('properties').append(term,text);
+  }
+  $('claim').hidden = task.hint !== '可接单';
+  $('comment').hidden = task.state === '已完成';
+  drawEvents(task);
+}
+
+function drawEvents(task) {
+  const events = $('events');
+  events.replaceChildren();
+  for (const item of (task.events ?? [])) {
+    const li = document.createElement('li');
+    li.innerHTML = '<div class="event-meta"><span class="avatar" aria-hidden="true"></span><strong></strong><span class="muted"></span><time></time></div><p></p>';
+    li.querySelector('.avatar').textContent = item.author[0];
+    li.querySelector('strong').textContent = item.author;
+    li.querySelector('.muted').textContent = item.kind;
+    li.querySelector('time').textContent = item.time;
+    li.querySelector('p').textContent = item.text;
+    if (item.evidence) {
+      li.className = 'delivery';
+      const actions = document.createElement('div');
+      actions.className = 'delivery-actions';
+      const evidence = document.createElement('button');
+      evidence.className = 'quiet';
+      evidence.textContent = '查看交付';
+      evidence.onclick = () => {
+        $('evidence-title').textContent = item.kind;
+        $('evidence-body').textContent = item.evidence;
+        $('evidence').showModal();
+      };
+      actions.append(evidence);
+      if (item === task.accepted) {
+        const accepted = document.createElement('span');
+        accepted.className = 'result';
+        accepted.textContent = '已通过';
+        actions.append(accepted);
+      } else if (task.state === '处理中' && task.reviewer === '我') {
+        const approve = document.createElement('button');
+        approve.className = 'quiet';
+        approve.textContent = '选定并通过';
+        approve.onclick = () => {
+          task.accepted = item;
+          task.state = '已完成';
+          task.hint = '';
+          task.events.push({author:'我',kind:'验收通过',time:'刚刚',text:'通过' + item.kind + '。其他交付保留在协作记录中。'});
+          drawDetail(task);
+          $('task-title').focus();
+        };
+        actions.append(approve);
+      }
+      li.append(actions);
+    }
+    events.append(li);
+  }
+  if (!events.children.length) {
+    const li = document.createElement('li');
+    li.className = 'muted';
+    li.textContent = '暂无协作记录';
+    events.append(li);
+  }
+}
+
+function navigate() {
+  const match = /^#RK-(\d+)$/.exec(location.hash);
+  const task = match && tasks.find(item => item.id === Number(match[1]));
+  $('board').hidden = !!task;
+  $('detail').hidden = !task;
+  if (task) {
+    lastCard = task.id;
+    $('comment').reset();
+    drawDetail(task);
+    $('task-title').focus();
+    scrollTo(0,0);
+  } else {
+    current = null;
+    drawBoard();
+    if (lastCard !== null) ($('card-' + lastCard) ?? $('search')).focus();
+  }
+}
+
+$('claim').addEventListener('click', () => {
+  const task = current;
+  task.state = '处理中';
+  task.hint = '';
+  task.claimant = '我';
+  (task.events ??= []).push({author:'我',kind:'接单',time:'刚刚',text:'开始处理这条需求。'});
+  drawDetail(task);
+  $('comment-text').focus();
+});
+$('comment').addEventListener('submit', event => {
+  event.preventDefault();
+  const text = $('comment-text').value.trim();
+  if (!text) return;
+  const isReply = current.reviewer === '我' && current.hint === '待我回复';
+  (current.events ??= []).push({author:'我',kind:isReply ? '回复' : '评论',time:'刚刚',text});
+  if (isReply) current.hint = '';
+  drawEvents(current);
+  event.currentTarget.reset();
+});
+$('search').addEventListener('input', drawBoard);
+for (const id of ['type','business','attention']) $(id).addEventListener('change', drawBoard);
+window.addEventListener('hashchange', navigate);
+navigate();
+</script>
+</body>
+</html>
